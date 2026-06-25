@@ -19,7 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          lfs: true  # 启用 LFS，拉取 glb 模型文件
+          lfs: false  # 模型文件直接存储在仓库中，无需 LFS
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
