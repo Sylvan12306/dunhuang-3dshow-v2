@@ -207,12 +207,12 @@ function assignStatueName(mesh) {
       mesh.getMatrixAt(i, tempMatrix)
       tempMatrix.decompose(tempPos, tempQuat, tempScale)
 
-      // 将实例局部坐标转换为世界坐标
-      const worldPos = tempPos.clone().applyMatrix4(mesh.matrixWorld)
-
-      // 用scale.y估算实际高度（作为区分辅助）
+      // GLTFLoader的InstancedMesh实例矩阵已经是世界坐标（已预乘node变换）
+      // 不需要再乘以matrixWorld，直接使用tempPos即可
+      const cx = tempPos.x
+      const cz = tempPos.z
       const estimatedHeight = tempScale.y
-      const name = matchStatueByPosition(worldPos.x, worldPos.z, estimatedHeight)
+      const name = matchStatueByPosition(cx, cz, estimatedHeight)
       if (name) {
         instanceNames[i] = name
       }
@@ -221,8 +221,9 @@ function assignStatueName(mesh) {
     const namedCount = Object.keys(instanceNames).length
     if (namedCount > 0) {
       mesh.userData.instanceNames = instanceNames
-      mesh.name = '彩塑_群组'
-      console.log('[模型] InstancedMesh命名 ' + namedCount + '/' + mesh.count + ' 实例: ' + Object.values(instanceNames).join(', '))
+      // 名称包含具体窟号关键词，方便raycaster匹配
+      mesh.name = '彩塑群组'
+      console.log('[模型] InstancedMesh命名 ' + namedCount + '/' + mesh.count + ' 实例')
     }
     return
   }
@@ -241,7 +242,6 @@ function assignStatueName(mesh) {
   const name = matchStatueByPosition(center.x, center.z, size.y)
   if (name) {
     mesh.name = name
-    console.log('[模型] 命名: ' + name + ' 位置=(' + center.x.toFixed(1) + ',' + center.y.toFixed(1) + ',' + center.z.toFixed(1) + ')')
   }
 }
 

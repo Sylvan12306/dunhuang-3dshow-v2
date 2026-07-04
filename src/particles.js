@@ -12,12 +12,12 @@ let sandSystem = null    // 金沙粒子系统
 let particleData = []
 let sandData = []        // 金沙粒子运动数据
 
-// 粒子参数（优化版：减少粒子数量，降低GPU渲染开销）
-const PETAL_COUNT = 200      // 花瓣数量（原400，减半优化性能）
-const HALO_COUNT = 60        // 光晕粒子数量（原100，精简优化）
-const SAND_COUNT = 150       // 金沙粒子数量（原300，减半优化性能）
-const PETAL_UPDATE_INTERVAL = 2  // 花瓣更新间隔（每N帧更新一次，降低刷新频率）
-const SAND_UPDATE_INTERVAL = 3  // 金沙更新间隔（每N帧更新一次）
+// 粒子参数（性能优化版：大幅减少粒子数量，降低GPU渲染开销）
+const PETAL_COUNT = 100      // 花瓣数量
+const HALO_COUNT = 30        // 光晕粒子数量
+const SAND_COUNT = 80        // 金沙粒子数量
+const PETAL_UPDATE_INTERVAL = 3  // 花瓣更新间隔（每N帧更新一次）
+const SAND_UPDATE_INTERVAL = 4  // 金沙更新间隔
 let frameCount = 0           // 帧计数器（控制粒子更新频率）
 const PETAL_AREA = {         // 花瓣飘落区域（匹配洞窟空间坐标）
   xMin: 8, xMax: 40,        // X 轴范围（洞窟区）

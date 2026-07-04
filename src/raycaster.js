@@ -365,8 +365,15 @@ export function bindRaycastToScene(cam, dom, mdl) {
   // 鼠标点击事件
   domElement.addEventListener('click', onPointerClick)
 
-  // 鼠标移动事件（悬停高亮）
-  domElement.addEventListener('pointermove', onPointerMove)
+  // 鼠标移动事件（悬停高亮）- 节流优化，降低检测频率
+  let hoverThrottle = null
+  domElement.addEventListener('pointermove', (e) => {
+    if (hoverThrottle) return
+    hoverThrottle = requestAnimationFrame(() => {
+      onPointerMove(e)
+      hoverThrottle = null
+    })
+  })
 
   console.log('[射线拾取] 已绑定到场景')
 }
@@ -388,33 +395,28 @@ function onPointerClick(event) {
   const intersects = raycaster.intersectObject(model, true)
 
   if (intersects.length > 0) {
-    // 找到第一个可交互对象
-    let target = null
-    let matchedIntersect = null
+    // 遍历所有交叉点，找到第一个可交互的
     for (const intersect of intersects) {
-      let obj = intersect.object
-      // 向上查找有名称的对象
-      while (obj && !target) {
-        if (obj.name && isInteractiveName(obj.name)) {
-          target = obj
-          matchedIntersect = intersect
-          break
-        }
-        obj = obj.parent
-      }
-      if (target) break
-    }
+      const obj = intersect.object
 
-    if (target) {
-      // 对于InstancedMesh，使用实例特定的名称
-      let nameToUse = target.name
-      if (target.isInstancedMesh && target.userData.instanceNames && matchedIntersect.instanceId !== undefined) {
-        const instanceName = target.userData.instanceNames[matchedIntersect.instanceId]
+      // InstancedMesh：直接使用实例名称
+      if (obj.isInstancedMesh && obj.userData.instanceNames && intersect.instanceId !== undefined) {
+        const instanceName = obj.userData.instanceNames[intersect.instanceId]
         if (instanceName) {
-          nameToUse = instanceName
+          showArtifactInfo(instanceName)
+          return
         }
       }
-      showArtifactInfo(nameToUse)
+
+      // 普通Mesh：向上查找有名称的可交互对象
+      let current = obj
+      while (current) {
+        if (current.name && isInteractiveName(current.name)) {
+          showArtifactInfo(current.name)
+          return
+        }
+        current = current.parent
+      }
     }
   }
 }
@@ -441,26 +443,32 @@ function onPointerMove(event) {
   }
 
   if (intersects.length > 0) {
-    let target = null
     for (const intersect of intersects) {
-      let obj = intersect.object
-      while (obj && !target) {
-        if (obj.name && isInteractiveName(obj.name)) {
-          target = obj
-          break
+      const obj = intersect.object
+      // InstancedMesh：检查实例是否有名称
+      if (obj.isInstancedMesh && obj.userData.instanceNames) {
+        if (intersect.instanceId !== undefined && obj.userData.instanceNames[intersect.instanceId]) {
+          hoveredObject = obj
+          if (obj.material.emissive) {
+            obj.material.emissiveIntensity = 0.3
+          }
+          domElement.style.cursor = 'pointer'
+          return
         }
-        obj = obj.parent
       }
-      if (target) break
-    }
-
-    if (target && target.material) {
-      hoveredObject = target
-      // 高亮效果
-      if (target.material.emissive) {
-        target.material.emissiveIntensity = 0.3
+      // 普通Mesh
+      let current = obj
+      while (current) {
+        if (current.name && isInteractiveName(current.name)) {
+          if (current.material && current.material.emissive) {
+            hoveredObject = current
+            current.material.emissiveIntensity = 0.3
+            domElement.style.cursor = 'pointer'
+            return
+          }
+        }
+        current = current.parent
       }
-      domElement.style.cursor = 'pointer'
     }
   }
 }

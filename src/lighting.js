@@ -50,9 +50,9 @@ export function setupLighting(scene) {
   const dirMain = new THREE.DirectionalLight(WARM_KEY_COLOR, 0.7)
   dirMain.position.set(8, 6, 4)
   dirMain.castShadow = true
-  // 柔和模糊阴影参数
-  dirMain.shadow.mapSize.width = 2048
-  dirMain.shadow.mapSize.height = 2048
+  // 适度阴影分辨率，平衡画质与性能
+  dirMain.shadow.mapSize.width = 1024
+  dirMain.shadow.mapSize.height = 1024
   dirMain.shadow.camera.near = 0.5
   dirMain.shadow.camera.far = 60
   dirMain.shadow.camera.left = -35
@@ -81,9 +81,8 @@ export function setupLighting(scene) {
   dirLights.push(dirFar)
 
   // ============================================================
-  // 第四层：点光源 - 造像定向主光 + 轮廓勾边光 + 壁画专属补光（精简版）
-  // 优化：每个洞窟仅保留3个核心光源（主光+轮廓光+壁画光），合并冗余光源
-  // 原方案每洞窟5-7个点光源，现精简为3个，减少实时光照计算开销
+  // 第四层：点光源 - 造像主光 + 壁画补光（精简版）
+  // 优化：每个洞窟仅保留2个核心光源（主光+壁画光），大幅减少实时光照计算
   // ============================================================
   const pointLights = []
 
@@ -99,30 +98,21 @@ export function setupLighting(scene) {
   cavePositions.forEach((pos, i) => {
     const sculptureX = pos.x + 6.5  // 佛龛造像位置
 
-    // --- 造像定向主光：合并原左前+右前两个点光源为一个居中光源 ---
-    // 暖金色 #FFE8C4，强度1.0（合并后增强），从正前方打亮佛像
-    const mainPL = new THREE.PointLight(WARM_KEY_COLOR, 1.0, 10, 2)
+    // --- 造像定向主光：从正前方打亮佛像 ---
+    const mainPL = new THREE.PointLight(WARM_KEY_COLOR, 1.2, 10, 2)
     mainPL.position.set(sculptureX - 2, 1.8, pos.z)
     scene.add(mainPL)
     pointLights.push(mainPL)
 
-    // --- 造像轮廓勾边光：弱暗金色 #D4AF37，强度0.25，从后方侧打 ---
-    const rimLight = new THREE.PointLight(RIM_GOLD_COLOR, 0.25, 6, 2)
-    rimLight.position.set(sculptureX + 1.2, 1.8, pos.z)
-    scene.add(rimLight)
-    pointLights.push(rimLight)
-
-    // --- 壁画专属补光灯：合并原左壁画+右壁画两个光源为一个居中光源 ---
-    // 暖黄柔光 #F2E2C0，强度0.8（合并后增强），居中照射壁画区域
-    const muralLight = new THREE.PointLight(MURAL_LIGHT_COLOR, 0.8, 8, 2)
+    // --- 壁画专属补光灯：居中照射壁画区域 ---
+    const muralLight = new THREE.PointLight(MURAL_LIGHT_COLOR, 0.9, 8, 2)
     muralLight.position.set(sculptureX - 1, 2.0, pos.z)
     scene.add(muralLight)
     pointLights.push(muralLight)
 
-    // 中央主尊（45窟盛唐）额外加强光照，作为第一视觉焦点
+    // 中央主尊（45窟盛唐）额外加强光照
     if (i === 1) {
-      // 主尊顶部聚光（强化视觉焦点）
-      const focusLight = new THREE.PointLight(WARM_KEY_COLOR, 0.8, 10, 2)
+      const focusLight = new THREE.PointLight(WARM_KEY_COLOR, 0.6, 10, 2)
       focusLight.position.set(sculptureX - 1, 3.0, pos.z)
       scene.add(focusLight)
       pointLights.push(focusLight)
@@ -130,24 +120,13 @@ export function setupLighting(scene) {
   })
 
   // ============================================================
-  // 第五层：空间纵深辅光（精简版）
-  // 优化：减少走廊侧光数量，从6个位置12个光源精简为3个位置6个光源
-  // 仅保留关键转角处侧光，减少实时光照计算开销
+  // 第五层：空间纵深辅光（极简版）
+  // 优化：仅保留1个走廊中点补光，大幅减少光源数量
   // ============================================================
-  const corridorPositions = [12, 26, 40]
-  corridorPositions.forEach((x) => {
-    // 左墙侧光
-    const wallLightL = new THREE.PointLight(WARM_FILL_COLOR, 0.25, 10, 2)
-    wallLightL.position.set(x, 2.5, 5)
-    scene.add(wallLightL)
-    pointLights.push(wallLightL)
-
-    // 右墙侧光
-    const wallLightR = new THREE.PointLight(WARM_FILL_COLOR, 0.25, 10, 2)
-    wallLightR.position.set(x, 2.5, -5)
-    scene.add(wallLightR)
-    pointLights.push(wallLightR)
-  })
+  const corridorLight = new THREE.PointLight(WARM_FILL_COLOR, 0.3, 20, 2)
+  corridorLight.position.set(22, 3, 1.6)
+  scene.add(corridorLight)
+  pointLights.push(corridorLight)
 
   lights = { ambient, hemi, dirLights, pointLights }
 

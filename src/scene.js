@@ -42,7 +42,8 @@ export function initScene() {
     stencil: false,             // 关闭模板缓冲（节省内存）
   })
   renderer.setSize(window.innerWidth, window.innerHeight)
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)) // 限制像素比，兼顾性能
+  // 限制像素比至1.5，兼顾清晰度与性能（移动设备2x渲染开销翻倍）
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5))
   renderer.outputColorSpace = THREE.SRGBColorSpace  // 正确的色彩空间
   renderer.toneMapping = THREE.ACESFilmicToneMapping // 电影级色调映射（暗部提亮）
   renderer.toneMappingExposure = 1.15                  // 提升曝光，暗部提亮，消除死黑

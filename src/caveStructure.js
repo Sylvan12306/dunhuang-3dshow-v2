@@ -438,10 +438,9 @@ function createCaveTitleSprite(text, cave, index) {
   const sprite = new THREE.Sprite(spriteMaterial)
   // 标题统一缩放
   sprite.scale.set(4, 1, 1)
-
-  // 标题位置：后墙居中偏上，与展品预留充足纵深距离
-  // 统一高度3.8，贴近后墙（x = cave.x + CAVE_DEPTH - 0.2），避免被展品遮挡
-  sprite.position.set(cave.x + CAVE_DEPTH - 0.2, 3.8, cave.z)
+  // 标题位置：佛龛造像正上方（cave.x + CAVE_DEPTH - 1.5 = 佛龛位置）
+  // 放在洞窟深处，观赏者在入口时看不到下一个洞窟的标题
+  sprite.position.set(cave.x + CAVE_DEPTH - 1.5, 3.8, cave.z)
 
   sprite.name = cave.name + '标题'
   sprite.userData.caveIndex = index
