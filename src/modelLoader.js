@@ -124,10 +124,12 @@ export function loadModel(url = MODEL_URL, onProgress) {
 
 /**
  * 根据世界坐标为无名雕塑节点分配名称
+ * 坐标映射：Blender(X,Y,Z) → Three.js(X,Y_up,-Z_forward)
+ * 即 Blender Y轴(左右) 映射为 Three.js -Z轴(取反)
+ * cx=深度, cy=高度(上下), cz=左右(取反Blender Y)
  * 位置信息来自 Blender 脚本 create_dunhuang_museum.py
  * CAVE_DEPTH=8, x_start: 285=8, 45=15, 217=22, 17=29, 3=36
  * niche_x = x_start + CAVE_DEPTH - 1.5
- * y_center = 0, CAVE_WIDTH = 6
  */
 function assignStatueName(mesh) {
   // 计算世界坐标的包围盒中心
@@ -135,68 +137,72 @@ function assignStatueName(mesh) {
   const box = new THREE.Box3().setFromObject(mesh)
   const center = new THREE.Vector3()
   box.getCenter(center)
-  const cx = center.x
-  const cy = center.y
-  const cz = center.z
+  const cx = center.x  // 深度（洞穴方向）
+  const cy = center.y  // 高度（上下）
+  const cz = center.z  // 左右（Blender Y 取反：左=正Z, 右=负Z）
   const size = new THREE.Vector3()
   box.getSize(size)
   const height = size.y
+  const width = size.x
+  const depth = size.z
 
-  // 洞窟雕塑位置映射（来自Blender脚本）
-  // 格式: [x_min, x_max, y_min, y_max, 名称]
+  // 过滤：只处理雕塑尺寸的mesh（排除洞窟结构mesh如墙壁、地板）
+  // 雕塑特征：高度适中(0.3-4.0)，宽深较小(<3.0)
+  if (height < 0.3 || height > 4.0 || width > 3.0 || depth > 3.0) return
+
+  // 洞窟雕塑位置映射（基于Blender→Three.js坐标转换）
+  // 格式: [x_min, x_max, z_min, z_max, 名称]
+  // cz正值=左侧(Blender负Y), cz负值=右侧(Blender正Y), cz≈0=居中
   const statuePositions = [
     // 285窟 (x_start=8, niche_x=14.5)
-    [13.5, 16, -0.5, 0.5, '彩塑285_左胁侍'],     // 左胁侍 y=-1.5
-    [13.5, 16, -2.5, -0.5, '彩塑285_左胁侍'],      // 左胁侍 y偏移
-    [13.5, 16, 0.5, 2.5, '彩塑285_右胁侍'],        // 右胁侍 y=1.5
+    [13.5, 16, -0.8, 0.8, '彩塑285_西魏佛'],       // 西魏佛 Blender Y=0 → cz≈0
+    [13.5, 16, 0.8, 2.3, '彩塑285_左胁侍'],         // 左胁侍 Blender Y=-1.5 → cz≈1.5
+    [13.5, 16, -2.3, -0.8, '彩塑285_右胁侍'],       // 右胁侍 Blender Y=1.5 → cz≈-1.5
 
     // 45窟 (x_start=15, niche_x=21.5)
-    [20, 23, -1.0, 1.0, '彩塑45_主佛'],            // 主佛 y=0, 最高
-    [20, 23, -2.0, -0.5, '彩塑45_迦叶'],           // 迦叶 y=-1.2
-    [20, 23, 0.5, 2.0, '彩塑45_阿难'],             // 阿难 y=1.2
-    [20, 23, -3.5, -1.5, '彩塑45_左菩萨'],         // 左菩萨 y=-2.4
-    [20, 23, 1.5, 3.5, '彩塑45_右菩萨'],           // 右菩萨 y=2.4
-    [20, 23, -4.5, -2.5, '彩塑45_天王'],           // 天王 y=-3.2
-    [20, 23, 2.5, 4.5, '彩塑45_力士'],             // 力士 y=3.2
+    [20, 23, -0.8, 0.8, '彩塑45_主佛'],              // 主佛 Blender Y=0 → cz≈0, 最高
+    [20, 23, 0.5, 1.8, '彩塑45_迦叶'],               // 迦叶 Blender Y=-1.2 → cz≈1.2
+    [20, 23, -1.8, -0.5, '彩塑45_阿难'],             // 阿难 Blender Y=1.2 → cz≈-1.2
+    [20, 23, 1.8, 3.2, '彩塑45_左菩萨'],             // 左菩萨 Blender Y=-2.4 → cz≈2.4
+    [20, 23, -3.2, -1.8, '彩塑45_右菩萨'],           // 右菩萨 Blender Y=2.4 → cz≈-2.4
+    [20, 23, 2.0, 3.5, '彩塑45_天王'],               // 天王 Blender Y=-2.8 → cz≈2.8
+    [20, 23, -3.5, -2.0, '彩塑45_力士'],             // 力士 Blender Y=2.8 → cz≈-2.8
 
     // 217窟 (x_start=22, niche_x=28.5)
-    [27, 30, -1.0, 1.0, '彩塑217_主佛'],           // 主佛 y=0
-    [27, 30, -3.5, -1.5, '彩塑217_左菩萨'],        // 左菩萨
-    [27, 30, 1.5, 3.5, '彩塑217_右菩萨'],          // 右菩萨
-    [27, 30, -5.0, -3.0, '彩塑217_左供养菩萨'],    // 左供养菩萨
-    [27, 30, 3.0, 5.0, '彩塑217_右供养菩萨'],      // 右供养菩萨
+    [27, 30, -0.8, 0.8, '彩塑217_主佛'],             // 主佛 Blender Y=0 → cz≈0
+    [27, 30, 0.8, 2.3, '彩塑217_左菩萨'],            // 左菩萨 Blender Y=-1.5 → cz≈1.5
+    [27, 30, -2.3, -0.8, '彩塑217_右菩萨'],          // 右菩萨 Blender Y=1.5 → cz≈-1.5
+    [27, 30, 2.0, 3.5, '彩塑217_左供养菩萨'],        // 左供养菩萨 Blender Y=-2.7 → cz≈2.7
+    [27, 30, -3.5, -2.0, '彩塑217_右供养菩萨'],      // 右供养菩萨 Blender Y=2.7 → cz≈-2.7
 
     // 17窟 (x_start=29, niche_x=35.5)
-    [34, 37, -1.0, 1.0, '彩塑17_洪辩法师'],        // 洪辩法师 y=0
-    [34, 37, -2.5, -0.5, '彩塑17_左弟子'],          // 左弟子 y=-1.2
-    [34, 37, 0.5, 2.5, '彩塑17_右弟子'],            // 右弟子 y=1.2
-    [34, 37, -4.0, -2.0, '彩塑17_左僧人'],          // 左僧人
-    [34, 37, 2.0, 4.0, '彩塑17_右僧人'],            // 右僧人
+    [34, 37, -0.8, 0.8, '彩塑17_洪辩法师'],          // 洪辩法师 Blender Y=0 → cz≈0
+    [34, 37, 0.8, 2.3, '彩塑17_左弟子'],              // 左弟子 Blender Y=-1.5 → cz≈1.5
+    [34, 37, -2.3, -0.8, '彩塑17_右弟子'],            // 右弟子 Blender Y=1.5 → cz≈-1.5
+    [34, 37, 2.0, 3.5, '彩塑17_左僧人'],              // 左僧人 Blender Y=-2.7 → cz≈2.7
+    [34, 37, -3.5, -2.0, '彩塑17_右僧人'],            // 右僧人 Blender Y=2.7 → cz≈-2.7
 
     // 3窟 (x_start=36, niche_x=42.5)
-    [41, 44, -1.0, 1.0, '彩塑3_密宗千手观音'],     // 千手观音 y=0, 最高
-    [41, 44, -3.0, -0.5, '彩塑3_密宗左胁侍'],      // 左胁侍
-    [41, 44, 0.5, 3.0, '彩塑3_密宗右胁侍'],        // 右胁侍
-    [41, 44, -5.0, -2.5, '彩塑3_密宗左护法金刚'],  // 左护法
-    [41, 44, 2.5, 5.0, '彩塑3_密宗右护法金刚'],    // 右护法
+    [41, 44, -0.8, 0.8, '彩塑3_密宗千手观音'],       // 千手观音 Blender Y=0 → cz≈0, 最高
+    [41, 44, 1.0, 2.5, '彩塑3_密宗左胁侍'],          // 左胁侍 Blender Y=-1.8 → cz≈1.8
+    [41, 44, -2.5, -1.0, '彩塑3_密宗右胁侍'],        // 右胁侍 Blender Y=1.8 → cz≈-1.8
+    [41, 44, 2.0, 3.5, '彩塑3_密宗左护法金刚'],      // 左护法 Blender Y=-2.8 → cz≈2.8
+    [41, 44, -3.5, -2.0, '彩塑3_密宗右护法金刚'],    // 右护法 Blender Y=2.8 → cz≈-2.8
   ]
 
-  // 按高度降序排序（主佛最高，优先匹配）
-  // 主佛通常 height > 2.0
-
-  // 匹配位置
-  for (const [xMin, xMax, yMin, yMax, name] of statuePositions) {
-    if (cx >= xMin && cx <= xMax && cy >= yMin && cy <= yMax) {
-      // 45窟主佛特殊判断：高度最高
-      if (name === '彩塑45_主佛' && height < 2.0) continue
+  // 匹配位置：主佛优先（高度最高的中心位置雕塑）
+  for (const [xMin, xMax, zMin, zMax, name] of statuePositions) {
+    if (cx >= xMin && cx <= xMax && cz >= zMin && cz <= zMax) {
+      // 中心位置(cz≈0)的主佛特殊判断：高度需足够高
+      if (name.includes('主佛') && name !== '彩塑285_西魏佛' && height < 1.5) continue
+      if (name === '彩塑285_西魏佛' && height < 1.0) continue
       mesh.name = name
-      console.log('[模型] 命名: ' + name + ' 位置=(' + cx.toFixed(1) + ',' + cy.toFixed(1) + ',' + cz.toFixed(1) + ') 高度=' + height.toFixed(1))
+      console.log('[模型] 命名: ' + name + ' 位置=(' + cx.toFixed(1) + ',' + cy.toFixed(1) + ',' + cz.toFixed(1) + ') 尺寸=(' + width.toFixed(1) + 'x' + height.toFixed(1) + 'x' + depth.toFixed(1) + ')')
       return
     }
   }
 
   // 如果没匹配到雕塑位置，检查是否是洞窟结构mesh（不需要命名）
-  // 根据X坐标判断属于哪个窟
   const caveRanges = [
     [8, 16, '洞窟285'], [15, 23, '洞窟45'], [22, 30, '洞窟217'],
     [29, 37, '洞窟17'], [36, 44, '洞窟3']
