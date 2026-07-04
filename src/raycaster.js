@@ -390,12 +390,14 @@ function onPointerClick(event) {
   if (intersects.length > 0) {
     // 找到第一个可交互对象
     let target = null
+    let matchedIntersect = null
     for (const intersect of intersects) {
       let obj = intersect.object
       // 向上查找有名称的对象
       while (obj && !target) {
         if (obj.name && isInteractiveName(obj.name)) {
           target = obj
+          matchedIntersect = intersect
           break
         }
         obj = obj.parent
@@ -404,7 +406,15 @@ function onPointerClick(event) {
     }
 
     if (target) {
-      showArtifactInfo(target.name)
+      // 对于InstancedMesh，使用实例特定的名称
+      let nameToUse = target.name
+      if (target.isInstancedMesh && target.userData.instanceNames && matchedIntersect.instanceId !== undefined) {
+        const instanceName = target.userData.instanceNames[matchedIntersect.instanceId]
+        if (instanceName) {
+          nameToUse = instanceName
+        }
+      }
+      showArtifactInfo(nameToUse)
     }
   }
 }
