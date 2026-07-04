@@ -52,6 +52,11 @@ export function loadModel(url = MODEL_URL, onProgress) {
             child.castShadow = true
             child.receiveShadow = true
 
+            // 为无名雕塑节点根据世界坐标分配名称
+            if (!child.name || child.name === '' || child.name.startsWith('立方体') || child.name.startsWith('平面') || child.name.startsWith('柱体') || child.name.startsWith('棱角球')) {
+              assignStatueName(child)
+            }
+
             // 标记可交互对象（用于 Raycaster 射线拾取）
             // Blender 中命名的对象会自动标记
             child.userData.interactive = isInteractiveObject(child.name)
@@ -115,6 +120,93 @@ export function loadModel(url = MODEL_URL, onProgress) {
       }
     )
   })
+}
+
+/**
+ * 根据世界坐标为无名雕塑节点分配名称
+ * 位置信息来自 Blender 脚本 create_dunhuang_museum.py
+ * CAVE_DEPTH=8, x_start: 285=8, 45=15, 217=22, 17=29, 3=36
+ * niche_x = x_start + CAVE_DEPTH - 1.5
+ * y_center = 0, CAVE_WIDTH = 6
+ */
+function assignStatueName(mesh) {
+  // 计算世界坐标的包围盒中心
+  mesh.updateWorldMatrix(true, true)
+  const box = new THREE.Box3().setFromObject(mesh)
+  const center = new THREE.Vector3()
+  box.getCenter(center)
+  const cx = center.x
+  const cy = center.y
+  const cz = center.z
+  const size = new THREE.Vector3()
+  box.getSize(size)
+  const height = size.y
+
+  // 洞窟雕塑位置映射（来自Blender脚本）
+  // 格式: [x_min, x_max, y_min, y_max, 名称]
+  const statuePositions = [
+    // 285窟 (x_start=8, niche_x=14.5)
+    [13.5, 16, -0.5, 0.5, '彩塑285_左胁侍'],     // 左胁侍 y=-1.5
+    [13.5, 16, -2.5, -0.5, '彩塑285_左胁侍'],      // 左胁侍 y偏移
+    [13.5, 16, 0.5, 2.5, '彩塑285_右胁侍'],        // 右胁侍 y=1.5
+
+    // 45窟 (x_start=15, niche_x=21.5)
+    [20, 23, -1.0, 1.0, '彩塑45_主佛'],            // 主佛 y=0, 最高
+    [20, 23, -2.0, -0.5, '彩塑45_迦叶'],           // 迦叶 y=-1.2
+    [20, 23, 0.5, 2.0, '彩塑45_阿难'],             // 阿难 y=1.2
+    [20, 23, -3.5, -1.5, '彩塑45_左菩萨'],         // 左菩萨 y=-2.4
+    [20, 23, 1.5, 3.5, '彩塑45_右菩萨'],           // 右菩萨 y=2.4
+    [20, 23, -4.5, -2.5, '彩塑45_天王'],           // 天王 y=-3.2
+    [20, 23, 2.5, 4.5, '彩塑45_力士'],             // 力士 y=3.2
+
+    // 217窟 (x_start=22, niche_x=28.5)
+    [27, 30, -1.0, 1.0, '彩塑217_主佛'],           // 主佛 y=0
+    [27, 30, -3.5, -1.5, '彩塑217_左菩萨'],        // 左菩萨
+    [27, 30, 1.5, 3.5, '彩塑217_右菩萨'],          // 右菩萨
+    [27, 30, -5.0, -3.0, '彩塑217_左供养菩萨'],    // 左供养菩萨
+    [27, 30, 3.0, 5.0, '彩塑217_右供养菩萨'],      // 右供养菩萨
+
+    // 17窟 (x_start=29, niche_x=35.5)
+    [34, 37, -1.0, 1.0, '彩塑17_洪辩法师'],        // 洪辩法师 y=0
+    [34, 37, -2.5, -0.5, '彩塑17_左弟子'],          // 左弟子 y=-1.2
+    [34, 37, 0.5, 2.5, '彩塑17_右弟子'],            // 右弟子 y=1.2
+    [34, 37, -4.0, -2.0, '彩塑17_左僧人'],          // 左僧人
+    [34, 37, 2.0, 4.0, '彩塑17_右僧人'],            // 右僧人
+
+    // 3窟 (x_start=36, niche_x=42.5)
+    [41, 44, -1.0, 1.0, '彩塑3_密宗千手观音'],     // 千手观音 y=0, 最高
+    [41, 44, -3.0, -0.5, '彩塑3_密宗左胁侍'],      // 左胁侍
+    [41, 44, 0.5, 3.0, '彩塑3_密宗右胁侍'],        // 右胁侍
+    [41, 44, -5.0, -2.5, '彩塑3_密宗左护法金刚'],  // 左护法
+    [41, 44, 2.5, 5.0, '彩塑3_密宗右护法金刚'],    // 右护法
+  ]
+
+  // 按高度降序排序（主佛最高，优先匹配）
+  // 主佛通常 height > 2.0
+
+  // 匹配位置
+  for (const [xMin, xMax, yMin, yMax, name] of statuePositions) {
+    if (cx >= xMin && cx <= xMax && cy >= yMin && cy <= yMax) {
+      // 45窟主佛特殊判断：高度最高
+      if (name === '彩塑45_主佛' && height < 2.0) continue
+      mesh.name = name
+      console.log('[模型] 命名: ' + name + ' 位置=(' + cx.toFixed(1) + ',' + cy.toFixed(1) + ',' + cz.toFixed(1) + ') 高度=' + height.toFixed(1))
+      return
+    }
+  }
+
+  // 如果没匹配到雕塑位置，检查是否是洞窟结构mesh（不需要命名）
+  // 根据X坐标判断属于哪个窟
+  const caveRanges = [
+    [8, 16, '洞窟285'], [15, 23, '洞窟45'], [22, 30, '洞窟217'],
+    [29, 37, '洞窟17'], [36, 44, '洞窟3']
+  ]
+  for (const [xMin, xMax, prefix] of caveRanges) {
+    if (cx >= xMin && cx <= xMax) {
+      // 不给洞窟结构mesh命名，保持空名称
+      return
+    }
+  }
 }
 
 /**
