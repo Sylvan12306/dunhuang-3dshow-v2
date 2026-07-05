@@ -65,6 +65,8 @@ async function main() {
     // 从根源删除所有洞窟标题 Sprite（无论来自何处：旧缓存/其他模块）
     // 仅保留飞天动画 Sprite（名称以"飞天"开头）
     purgeCaveTitleSprites(scene)
+    // 清理后墙文字mesh（模型加载后执行一次即可，不需要每帧检查）
+    purgeBackWallTextMeshes(scene)
 
     hideLoading()
     showUI()
@@ -140,6 +142,9 @@ function animate() {
   const delta = state.clock.getDelta()
   const elapsed = state.clock.getElapsedTime()
 
+  // 自适应性能：FPS低于阈值时自动降级
+  adaptivePerformance(delta)
+
   const controls = getControls()
   if (controls) controls.update()
 
@@ -169,15 +174,6 @@ function animate() {
     updateMinimap()
   }
 
-  // 定期清理旧洞窟标题 Sprite（每60帧检查一次，防止延迟加载模块重新创建）
-  if (frameCountPurge++ % 60 === 0) {
-    const scene = getScene()
-    if (scene) {
-      purgeCaveTitleSprites(scene)
-      purgeBackWallTextMeshes(scene)
-    }
-  }
-
   const renderer = getRenderer()
   const scene = getScene()
   const camera = getCamera()
@@ -185,7 +181,6 @@ function animate() {
 }
 
 let frameCountMinimap = 0
-let frameCountPurge = 0
 
 /**
  * 从场景中删除所有洞窟标题 Sprite
@@ -698,3 +693,62 @@ function updateMinimap() {
 
 window.addEventListener('resize', onWindowResize)
 main()
+
+// ============================================================
+// 自适应性能系统
+// ============================================================
+
+// FPS监测
+const fpsMonitor = {
+  frames: 0,
+  lastCheck: performance.now(),
+  currentFPS: 60,
+  degraded: false,
+}
+
+/**
+ * 自适应性能：FPS持续低于阈值时自动降级渲染质量
+ * - FPS<30：降低像素比到1.0，隐藏粒子系统
+ * - FPS恢复到45+：恢复原始质量
+ */
+function adaptivePerformance(delta) {
+  fpsMonitor.frames++
+  const now = performance.now()
+
+  // 每1秒检测一次FPS
+  if (now - fpsMonitor.lastCheck < 1000) return
+
+  fpsMonitor.currentFPS = Math.round(fpsMonitor.frames * 1000 / (now - fpsMonitor.lastCheck))
+  fpsMonitor.frames = 0
+  fpsMonitor.lastCheck = now
+
+  const renderer = getRenderer()
+  if (!renderer) return
+
+  if (fpsMonitor.currentFPS < 30 && !fpsMonitor.degraded) {
+    // 降级：降低像素比，隐藏粒子
+    fpsMonitor.degraded = true
+    renderer.setPixelRatio(1.0)
+    renderer.setSize(window.innerWidth, window.innerHeight)
+    // 隐藏粒子系统
+    const scene = getScene()
+    scene.traverse((child) => {
+      if (child.name === '花瓣飘落' || child.name === '金沙漂浮') {
+        child.visible = false
+      }
+    })
+    console.log('[性能] FPS过低(' + fpsMonitor.currentFPS + ')，已降级渲染质量')
+  } else if (fpsMonitor.currentFPS >= 45 && fpsMonitor.degraded) {
+    // 恢复
+    fpsMonitor.degraded = false
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5))
+    renderer.setSize(window.innerWidth, window.innerHeight)
+    const scene = getScene()
+    scene.traverse((child) => {
+      if (child.name === '花瓣飘落' || child.name === '金沙漂浮') {
+        child.visible = true
+      }
+    })
+    console.log('[性能] FPS恢复(' + fpsMonitor.currentFPS + ')，已恢复渲染质量')
+  }
+}
