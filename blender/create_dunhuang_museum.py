@@ -15,7 +15,7 @@ from mathutils import Vector
 # 配置
 # ============================================================
 IMAGE_DIR = r"d:\sd-webui-aki\sd-webui-aki-v4.2\kohya_ss\dunhuang_gallery_v3"
-OUTPUT_BLEND = r"d:\sd-webui-aki\sd-webui-aki-v4.2\dunhuang-3dshow 1\blender\dunhuang_museum.blend"
+OUTPUT_BLEND = r"d:\sd-webui-aki\sd-webui-aki-v4.2\dunhuang-3dshow 2 国奖\blender\dunhuang_museum.blend"
 
 # 展馆总尺寸（米）
 MUSEUM_LENGTH = 72.0   # X 轴总长度（延长以容纳3窟完整范围和数字区）
@@ -2445,56 +2445,8 @@ def create_cliff_facade():
 # 十一、洞窟编号标签
 # ============================================================
 def create_cave_number_labels():
-    """每个洞窟入口上方添加浮雕式编号标签（平面+文字）"""
-    print("\n--- 创建洞窟编号标签 ---")
-
-    door_height = 2.5
-
-    for cave_info in CAVES:
-        cave_name = cave_info["name"]
-        dynasty = cave_info["dynasty"]
-        x_start = cave_info["x_start"]
-        x_front = x_start + WALL_THICKNESS / 2 - 0.08
-        label_text = "{}{}窟".format(dynasty, cave_name)
-
-        print("  创建标签: {}".format(label_text))
-
-        # 标签背景板（朱砂色石板，法线朝向游客 -X 方向）
-        plaque_mat = create_material("标签板_{}".format(cave_name),
-                                     COLOR_ZHUSHA, roughness=0.65)
-        add_plane("标签板_{}".format(cave_name),
-                  (x_front, 0, door_height + 0.35),
-                  (0.7, 2.0, 1), plaque_mat,
-                  rotation=(0, math.radians(-90), 0))
-
-        # 标签边框（土黄色）
-        frame_mat = create_material("标签框_{}".format(cave_name),
-                                    COLOR_TUHUANG, roughness=0.6)
-        add_box("标签框上_{}".format(cave_name),
-                (x_front - 0.02, 0, door_height + 0.68),
-                (0.04, 2.1, 0.05), frame_mat)
-        add_box("标签框下_{}".format(cave_name),
-                (x_front - 0.02, 0, door_height + 0.02),
-                (0.04, 2.1, 0.05), frame_mat)
-        add_box("标签框左_{}".format(cave_name),
-                (x_front - 0.02, -1.0, door_height + 0.35),
-                (0.04, 0.05, 0.7), frame_mat)
-        add_box("标签框右_{}".format(cave_name),
-                (x_front - 0.02, 1.0, door_height + 0.35),
-                (0.04, 0.05, 0.7), frame_mat)
-
-        # 3D文字（土黄色浮雕，面向洞窟入口观众，正立方向）
-        # 旋转 (90, 0, -90) 使文字法线朝 -X（面向游客），上方为 +Z（正立），阅读方向 +Y 到 -Y
-        text_mat = create_material("标签文字_{}".format(cave_name),
-                                   COLOR_TUHUANG, roughness=0.5)
-        create_text_label("标签文字_{}".format(cave_name),
-                          label_text,
-                          (x_front - 0.06, 0.7, door_height + 0.22),
-                          size=0.28, extrude=0.02,
-                          material=text_mat,
-                          rotation=(math.radians(90), 0, math.radians(-90)))
-
-    print("洞窟编号标签完成（5个）")
+    """洞窟编号标签已删除 - 不再显示洞窟名称"""
+    print("\n--- 洞窟编号标签已跳过（已删除）---")
 
 
 # ============================================================
@@ -2580,7 +2532,7 @@ def create_corridor_decorations():
                     (x_front - 0.08, ly, 1.8),
                     (0.06, 0.15, 0.25), lamp_mat)
 
-        # 文物立牌（栈道旁站立式）
+        # 文物立牌（已删除文字部分，仅保留立牌支柱和面板）
         sign_text = "{}{}窟".format(dynasty, cave_name)
         sign_x = x_start - 1.5
         # 立牌支柱
@@ -2592,15 +2544,6 @@ def create_corridor_decorations():
                   (sign_x, -CAVE_WIDTH / 2 - 0.55, 1.2),
                   (0.5, 0.7, 1), sign_mat,
                   rotation=(math.radians(90), 0, 0))
-        # 立牌文字（法线朝 -Y 面向走廊，正立方向 +Z）
-        sign_text_mat = create_material("立牌文字_{}".format(cave_name),
-                                        COLOR_TUHUANG, roughness=0.5)
-        create_text_label("立牌文字_{}".format(cave_name),
-                           sign_text,
-                           (sign_x - 0.18, -CAVE_WIDTH / 2 - 0.53, 1.0),
-                           size=0.15, extrude=0.01,
-                           material=sign_text_mat,
-                           rotation=(math.radians(90), 0, 0))
 
     print("廊道灯龛与文物立牌完成")
 

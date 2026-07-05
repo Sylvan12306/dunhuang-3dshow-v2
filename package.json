@@ -1,5 +1,5 @@
 {
-  "name": "dunhuang-3dshow",
+  "name": "dunhuang-3dshow-v2",
   "version": "1.0.0",
   "description": "敦煌 3DShow 数字展馆 - Three.js 虚拟洞窟",
   "type": "module",
@@ -19,6 +19,8 @@
     "three-gltf-loader": "^1.111.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
+    "playwright": "^1.61.1",
     "vite": "^5.4.0",
     "vite-plugin-compression": "^0.5.1"
   }

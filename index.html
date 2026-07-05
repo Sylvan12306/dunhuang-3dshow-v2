@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>敦煌 3DShow 数字洞窟</title>
-  <!-- 预加载模型文件：使用相对路径适配 GitHub Pages，消除 preload 警告 -->
-  <link rel="preload" href="./models/dunhuang_museum_v2.glb" as="fetch" crossorigin fetchpriority="high" />
+  <!-- 预加载模型文件：使用 v3（已删除洞窟文字标签），使用相对路径适配 GitHub Pages -->
+  <link rel="preload" href="./models/dunhuang_museum_v3.glb" as="fetch" crossorigin fetchpriority="high" />
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -257,6 +257,8 @@
       <span class="title">敦煌 3DShow</span>
       <div class="nav-btns">
   <button id="btn-guide" title="导览指引">导览</button>
+  <button id="btn-aigc" title="AIGC数字修复" style="color:#7BCC8A;border-color:rgba(91,140,106,0.4);">AIGC</button>
+  <button id="btn-voice" title="语音导览">语音</button>
   <button id="btn-minimap" title="导览地图">地图</button>
   <button id="btn-fullscreen" title="全屏">全屏</button>
  <button onclick="window.open('https://yuzhouyuan.world/p/3d-model/6a3be0a5910c6b52d9934579','_blank')" title="跳转宇宙元查看轻量化完整3D模型">元宇宙模型</button>
@@ -319,29 +321,53 @@
           <h3>展品交互</h3>
           <p>点击壁画或彩塑，弹出文物解说弹窗，展示历史背景与文化内涵</p>
         </div>
+        <div class="guide-section">
+          <h3>AIGC 数字修复</h3>
+          <p>
+            点击顶部 <span class="key-badge">AIGC</span> 按钮打开AI修复面板，启动壁画智能修复。
+            目睹千年风化剥落的壁画，在AI修复下从破碎残损逐渐还原为绝美的原始色彩，
+            裂缝愈合、碎片归位、矿物颜料层层绽放，沉浸感受千年壁画的绝美重生
+          </p>
+        </div>
+        <div class="guide-section">
+          <h3>语音导览</h3>
+          <p>
+            点击 <span class="key-badge">语音</span> 按钮开启语音导览，进入洞窟自动播报专业解说，
+            深入了解每窟壁画的历史背景与艺术价值
+          </p>
+        </div>
         <button class="close-guide" onclick="document.getElementById('guide-modal').style.display='none'">开始游览</button>
       </div>
     </div>
 
     <!-- 底部操作提示 -->
     <div id="bottom-hint" style="display:none;">
-      左键旋转 | 滚轮缩放 | Shift+滚轮环绕 | WASD 漫游 | 点击展品查看
+      左键旋转 | 滚轮缩放 | WASD 漫游 | 点击展品 | AIGC修复 | 语音导览
     </div>
 
   </div>
   <script type="module" src="/src/main.js"></script>
   <!-- Service Worker 注册：使用相对路径适配 GitHub Pages，修复 sw.js 404 -->
+  <!-- 开发环境（localhost/127.0.0.1）不注册 SW，避免缓存干扰调试 -->
   <script>
     if ('serviceWorker' in navigator) {
-      window.addEventListener('load', function() {
-        // 使用相对路径注册 Service Worker，适配 GitHub Pages 子路径部署
-        var swPath = './sw.js';
-        navigator.serviceWorker.register(swPath).then(function(reg) {
-          console.log('[SW] Service Worker 注册成功，作用域: ', reg.scope);
-        }).catch(function(err) {
-          console.warn('[SW] Service Worker 注册失败: ', err);
+      var isDev = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+      if (isDev) {
+        // 开发环境：注销已存在的 Service Worker，确保请求直达 dev server
+        navigator.serviceWorker.getRegistrations().then(function(regs) {
+          regs.forEach(function(reg) { reg.unregister(); console.log('[SW] 开发环境：已注销旧 Service Worker'); });
         });
-      });
+        console.log('[SW] 开发环境：跳过 Service Worker 注册');
+      } else {
+        window.addEventListener('load', function() {
+          var swPath = './sw.js';
+          navigator.serviceWorker.register(swPath).then(function(reg) {
+            console.log('[SW] Service Worker 注册成功，作用域: ', reg.scope);
+          }).catch(function(err) {
+            console.warn('[SW] Service Worker 注册失败: ', err);
+          });
+        });
+      }
     }
   </script>
 </body>

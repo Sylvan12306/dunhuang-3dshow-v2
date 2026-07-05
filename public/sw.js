@@ -6,7 +6,8 @@
  */
 
 // 缓存版本号（更新资源时修改此版本号）
-const CACHE_NAME = 'dunhuang-3dshow-v5'
+// v2 站点使用独立缓存名，避免与 v1 站点缓存冲突
+const CACHE_NAME = 'dunhuang-3dshow-v2-v1'
 
 // 获取基础路径（适配 GitHub Pages 子路径部署）
 // 通过 self.registration.scope 获取作用域，提取相对路径
@@ -19,7 +20,7 @@ const PRECACHE_URLS = [
 ]
 
 // 模型文件路径（使用相对路径，适配 GitHub Pages 子路径部署）
-const MODEL_PATH = SCOPE_PATH + 'models/dunhuang_museum_v2.glb'
+const MODEL_PATH = SCOPE_PATH + 'models/dunhuang_museum_v3.glb'
 
 // 安装事件：预缓存关键资源
 self.addEventListener('install', (event) => {

@@ -303,17 +303,15 @@ function buildSingleCave(parent, cave, index, materials) {
   rightPedestal.name = cave.name + '右侧造像基座'
   parent.add(rightPedestal)
 
-  // === 洞窟标题文字Sprite（后墙居中偏上，与展品预留纵深距离）===
+  // === 洞窟标题文字Sprite（已删除，不再显示洞窟名称标签）===
   // 标题格式：朝代 + 窟号（如"西魏 285窟"、"盛唐 45窟"）
-  const titleText = cave.dynasty + ' ' + cave.name
-  const titleSprite = createCaveTitleSprite(titleText, cave, index)
-  // 初始仅显示第一个洞窟标题，其余隐藏
-  titleSprite.visible = (index === 0)
-  parent.add(titleSprite)
+  // const titleText = cave.dynasty + ' ' + cave.name
+  // const titleSprite = createCaveTitleSprite(titleText, cave, index)
+  // titleSprite.visible = false
+  // parent.add(titleSprite)
 
-  // 存储标题Sprite引用，用于场景切换时更新可见性
-  const caveNumber = cave.name.replace('窟', '')
-  caveTitleSprites[caveNumber] = titleSprite
+  // const caveNumber = cave.name.replace('窟', '')
+  // caveTitleSprites[caveNumber] = titleSprite
 }
 
 /**
@@ -386,66 +384,16 @@ export function getCaveStructurePositions() {
 const caveTitleSprites = {}
 
 /**
- * 创建洞窟标题文字Sprite（Canvas纹理，3D空间中面向相机）
+ * 创建洞窟标题文字Sprite（已禁用，不再创建洞窟标题）
+ * 根因修复：所有洞窟标题文字已删除，函数保留仅作向后兼容，直接返回 null
  * @param {string} text - 标题文字
  * @param {Object} cave - 洞窟位置数据
  * @param {number} index - 洞窟索引
- * @returns {THREE.Sprite} 标题Sprite
+ * @returns {null} 始终返回 null
  */
 function createCaveTitleSprite(text, cave, index) {
-  const canvas = document.createElement('canvas')
-  const ctx = canvas.getContext('2d')
-  canvas.width = 512
-  canvas.height = 128
-
-  // 透明背景
-  ctx.clearRect(0, 0, canvas.width, canvas.height)
-
-  // 文字样式：暗金色，统一字体大小和配色
-  ctx.font = 'bold 56px "Microsoft YaHei", "PingFang SC", sans-serif'
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-
-  // 文字阴影（增强可读性）
-  ctx.shadowColor = 'rgba(0, 0, 0, 0.8)'
-  ctx.shadowBlur = 8
-  ctx.shadowOffsetX = 2
-  ctx.shadowOffsetY = 2
-
-  // 暗金色文字
-  ctx.fillStyle = '#D4AF37'
-  ctx.fillText(text, canvas.width / 2, canvas.height / 2)
-
-  // 描边（增强对比度）
-  ctx.shadowBlur = 0
-  ctx.shadowOffsetX = 0
-  ctx.shadowOffsetY = 0
-  ctx.strokeStyle = 'rgba(139, 105, 20, 0.6)'
-  ctx.lineWidth = 1
-  ctx.strokeText(text, canvas.width / 2, canvas.height / 2)
-
-  const texture = new THREE.CanvasTexture(canvas)
-  texture.needsUpdate = true
-
-  const spriteMaterial = new THREE.SpriteMaterial({
-    map: texture,
-    transparent: true,
-    depthTest: true,
-    depthWrite: false,
-    sizeAttenuation: true,
-  })
-
-  const sprite = new THREE.Sprite(spriteMaterial)
-  // 标题统一缩放
-  sprite.scale.set(4, 1, 1)
-  // 标题位置：佛龛造像正上方（cave.x + CAVE_DEPTH - 1.5 = 佛龛位置）
-  // 放在洞窟深处，观赏者在入口时看不到下一个洞窟的标题
-  sprite.position.set(cave.x + CAVE_DEPTH - 1.5, 3.8, cave.z)
-
-  sprite.name = cave.name + '标题'
-  sprite.userData.caveIndex = index
-
-  return sprite
+  console.log('[洞窟结构] createCaveTitleSprite 已禁用，不创建标题:', text)
+  return null
 }
 
 /**

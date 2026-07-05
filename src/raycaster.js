@@ -4,12 +4,14 @@
  * 点击对应模型部件触发弹窗展示文物解说、历史背景
  */
 import * as THREE from 'three'
+import { getStatuePositions } from './modelLoader.js'
 
 let raycaster = null
 let mouse = null
 let camera = null
 let domElement = null
 let model = null
+let statuePositions = null
 
 // 文物解说数据库（根据 Blender 模型名称匹配）
 // 按 specificity 排序：长键优先匹配，避免短键误匹配
@@ -362,6 +364,8 @@ export function bindRaycastToScene(cam, dom, mdl) {
 
   if (!raycaster) initRaycaster()
 
+  statuePositions = getStatuePositions()
+
   // 鼠标点击事件
   domElement.addEventListener('click', onPointerClick)
 
@@ -375,7 +379,7 @@ export function bindRaycastToScene(cam, dom, mdl) {
     })
   })
 
-  console.log('[射线拾取] 已绑定到场景')
+  console.log('[射线拾取] 已绑定到场景，雕塑位置数据已加载')
 }
 
 /**
@@ -384,22 +388,25 @@ export function bindRaycastToScene(cam, dom, mdl) {
 function onPointerClick(event) {
   if (!camera || !model) return
 
-  // 计算鼠标 NDC 坐标（-1 到 1）
   mouse.x = (event.clientX / window.innerWidth) * 2 - 1
   mouse.y = -(event.clientY / window.innerHeight) * 2 + 1
 
-  // 设置射线
   raycaster.setFromCamera(mouse, camera)
-
-  // 检测相交对象
   const intersects = raycaster.intersectObject(model, true)
 
   if (intersects.length > 0) {
-    // 遍历所有交叉点，找到第一个可交互的
+    const firstIntersect = intersects[0]
+    const hitPoint = firstIntersect.point
+
+    const statueName = matchStatueByPoint(hitPoint.x, hitPoint.z)
+    if (statueName) {
+      showArtifactInfo(statueName)
+      return
+    }
+
     for (const intersect of intersects) {
       const obj = intersect.object
 
-      // InstancedMesh：直接使用实例名称
       if (obj.isInstancedMesh && obj.userData.instanceNames && intersect.instanceId !== undefined) {
         const instanceName = obj.userData.instanceNames[intersect.instanceId]
         if (instanceName) {
@@ -408,7 +415,6 @@ function onPointerClick(event) {
         }
       }
 
-      // 普通Mesh：向上查找有名称的可交互对象
       let current = obj
       while (current) {
         if (current.name && isInteractiveName(current.name)) {
@@ -419,6 +425,16 @@ function onPointerClick(event) {
       }
     }
   }
+}
+
+function matchStatueByPoint(cx, cz) {
+  if (!statuePositions) return null
+  for (const pos of statuePositions) {
+    if (cx >= pos.xMin && cx <= pos.xMax && cz >= pos.zMin && cz <= pos.zMax) {
+      return pos.name
+    }
+  }
+  return null
 }
 
 /**
@@ -435,7 +451,6 @@ function onPointerMove(event) {
   raycaster.setFromCamera(mouse, camera)
   const intersects = raycaster.intersectObject(model, true)
 
-  // 恢复之前悬停对象
   if (hoveredObject) {
     hoveredObject.material.emissiveIntensity = 0
     hoveredObject = null
@@ -443,9 +458,22 @@ function onPointerMove(event) {
   }
 
   if (intersects.length > 0) {
+    const firstIntersect = intersects[0]
+    const hitPoint = firstIntersect.point
+
+    const statueName = matchStatueByPoint(hitPoint.x, hitPoint.z)
+    if (statueName) {
+      const obj = firstIntersect.object
+      if (obj.material && obj.material.emissive) {
+        hoveredObject = obj
+        obj.material.emissiveIntensity = 0.3
+      }
+      domElement.style.cursor = 'pointer'
+      return
+    }
+
     for (const intersect of intersects) {
       const obj = intersect.object
-      // InstancedMesh：检查实例是否有名称
       if (obj.isInstancedMesh && obj.userData.instanceNames) {
         if (intersect.instanceId !== undefined && obj.userData.instanceNames[intersect.instanceId]) {
           hoveredObject = obj
@@ -456,7 +484,6 @@ function onPointerMove(event) {
           return
         }
       }
-      // 普通Mesh
       let current = obj
       while (current) {
         if (current.name && isInteractiveName(current.name)) {
@@ -487,17 +514,35 @@ function isInteractiveName(name) {
 
 /**
  * 显示文物解说弹窗
- * 匹配策略：按 key 长度降序匹配，长键优先，确保特定壁画不会误匹配到通用 key
+ * 匹配策略：优先匹配雕塑类（包含彩塑、主佛、迦叶等），再匹配壁画类，按 key 长度降序匹配
  */
 function showArtifactInfo(objectName) {
-  // 按 key 长度降序排列，长键优先匹配
-  const sortedKeys = Object.keys(ARTIFACT_INFO).sort((a, b) => b.length - a.length)
+  const allKeys = Object.keys(ARTIFACT_INFO)
+
+  const statueKeys = allKeys.filter(key => 
+    key.includes('彩塑') || key.includes('主佛') || key.includes('迦叶') || 
+    key.includes('阿难') || key.includes('菩萨') || key.includes('天王') || 
+    key.includes('力士') || key.includes('洪辩') || key.includes('弟子') || 
+    key.includes('僧人') || key.includes('千手观音') || key.includes('西魏佛')
+  ).sort((a, b) => b.length - a.length)
+
+  const muralKeys = allKeys.filter(key => !statueKeys.includes(key))
+    .sort((a, b) => b.length - a.length)
 
   let info = null
-  for (const key of sortedKeys) {
+  for (const key of statueKeys) {
     if (objectName.includes(key)) {
       info = ARTIFACT_INFO[key]
       break
+    }
+  }
+
+  if (!info) {
+    for (const key of muralKeys) {
+      if (objectName.includes(key)) {
+        info = ARTIFACT_INFO[key]
+        break
+      }
     }
   }
 
@@ -506,7 +551,6 @@ function showArtifactInfo(objectName) {
     return
   }
 
-  // 显示弹窗
   const panel = document.getElementById('info-panel')
   const title = document.getElementById('info-title')
   const content = document.getElementById('info-content')
