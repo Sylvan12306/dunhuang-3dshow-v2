@@ -1,8 +1,41 @@
+# 依赖
 node_modules/
+
+# 构建产物
 dist/
-blender/*.blend1
+
+# 3D模型压缩缓存
 public/models/*.glb.br
 public/models/*.glb.gz
+
+# 一次性调试/分析脚本
 scripts/
+analyze_glb*.mjs
+verify-*.mjs
+verify-*.png
+
+# Playwright 浏览器和测试
+.pw-browsers/
 playwright-browsers/
+tests/
+test-results/
+playwright.config.cjs
+
+# Blender 项目文件（太大，不推到GitHub）
+blender/
+
+# 临时导出的纹理文件
+wall_tex_*.png
+tex_*.webp
+palette_*.png
+palette_*.webp
+backwall_*.webp
+wall_texture_*.webp
+
+# 截图和日志
 screenshot*.png
+debug.log
+
+# 系统文件
+.DS_Store
+Thumbs.db

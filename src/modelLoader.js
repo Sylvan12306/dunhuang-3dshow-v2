@@ -12,10 +12,8 @@ import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.j
 let loadedModel = null
 
 // glb 模型路径（使用 Vite base 路径，适配 GitHub Pages 部署）
-// 使用 v3 文件名强制浏览器重新下载，避免旧缓存中的文字标签 GLB
-// 添加版本查询参数 ?v=20260705 强制浏览器绕过 HTTP 缓存
 const BASE = import.meta.env.BASE_URL
-const MODEL_URL = BASE + 'models/dunhuang_museum_v3.glb?v=20260705'
+const MODEL_URL = BASE + 'models/dunhuang_museum_v3.glb'
 
 /**
  * 异步加载 glb 模型
@@ -71,6 +69,11 @@ export function loadModel(url = MODEL_URL, onProgress) {
             }
             // 删除后墙"窟号牌匾"（InstancedMesh，5个实例位于5个洞窟后墙中央，文字与洞窟不对应）
             if (child.isInstancedMesh && isBackWallPlaque(child)) {
+              meshesToRemove.push(child)
+              return
+            }
+            // 删除后墙文字牌匾（普通 Mesh，位于洞窟后墙中央的非结构对象）
+            if (isBackWallTextMesh(child)) {
               meshesToRemove.push(child)
               return
             }
@@ -184,9 +187,10 @@ const STATUE_POSITIONS = [
   [13.5, 16, -2.3, -0.8, '彩塑285_右胁侍'],
 
   // 45窟 (x_start=15, niche_x=21.5)
+  // 修正：观众左侧(+Z)为阿难，观众右侧(-Z)为迦叶
   [20, 23, -0.8, 0.8, '彩塑45_主佛'],
-  [20, 23, 0.8, 1.8, '彩塑45_迦叶'],
-  [20, 23, -1.8, -0.8, '彩塑45_阿难'],
+  [20, 23, 0.8, 1.8, '彩塑45_阿难'],
+  [20, 23, -1.8, -0.8, '彩塑45_迦叶'],
   [20, 23, 1.8, 2.6, '彩塑45_左菩萨'],
   [20, 23, -2.6, -1.8, '彩塑45_右菩萨'],
   [20, 23, 2.6, 3.5, '彩塑45_天王'],
@@ -401,6 +405,46 @@ function isBackWallPlaque(mesh) {
   // 如果大多数实例位于后墙牌匾位置，则判定为牌匾
   if (plaqueCount >= 5) {
     console.log('[模型] 检测到后墙窟号牌匾 InstancedMesh:', mesh.name, '匹配实例数:', plaqueCount)
+    return true
+  }
+  return false
+}
+
+/**
+ * 判断普通 Mesh 是否为后墙文字牌匾
+ * 特征：位于洞窟后墙中央（x对齐洞窟后墙, y≈2, z≈0），尺寸中等，不是墙壁/雕塑
+ */
+function isBackWallTextMesh(mesh) {
+  if (mesh.isInstancedMesh) return false // InstancedMesh 由 isBackWallPlaque 处理
+  mesh.updateWorldMatrix(true, true)
+  const box = new THREE.Box3().setFromObject(mesh)
+  const size = new THREE.Vector3()
+  box.getSize(size)
+  const center = new THREE.Vector3()
+  box.getCenter(center)
+
+  // 后墙文字牌匾：位于洞窟后墙区域，y在中上部，z靠近中轴线
+  const isBackWallPos = center.x > 14 && center.x < 45 &&
+                        center.y > 1.0 && center.y < 3.5 &&
+                        Math.abs(center.z) < 1.0
+  // 排除墙壁（很厚）、雕塑（人形）、地板（很矮）等
+  const isPlaqueSize = size.x > 0.5 && size.x < 5.0 &&
+                       size.y > 0.3 && size.y < 4.0 &&
+                       size.z < 1.0 // 牌匾是扁平的
+  // 排除已知非文字对象
+  const name = mesh.name || ''
+  if (name.includes('壁画') || name.includes('经变画') || name.includes('伎乐') ||
+      name.includes('飞天') || name.includes('供养人') || name.includes('藻井') ||
+      name.includes('千佛') || name.includes('护法') || name.includes('彩塑') ||
+      name.includes('暗纹') || name.includes('绢画') || name.includes('密宗') ||
+      name.includes('地面') || name.includes('后墙') || name.includes('右墙') ||
+      name.includes('顶棚') || name.includes('佛龛') || name.includes('基座') ||
+      name.includes('背光') || name.includes('门框') || name.includes('走廊')) {
+    return false
+  }
+
+  if (isBackWallPos && isPlaqueSize) {
+    console.log('[模型] 检测到后墙文字 Mesh:', name, 'center=(', center.x.toFixed(2), center.y.toFixed(2), center.z.toFixed(2), ')')
     return true
   }
   return false

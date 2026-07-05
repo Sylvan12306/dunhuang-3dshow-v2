@@ -5,6 +5,7 @@
  * 新增：AIGC壁画修复/飞天动画/语音解说
  * 优化：延迟加载非关键模块（粒子、音频、手势），优先渲染模型
  */
+import * as THREE from 'three'
 import { initScene, getScene, getCamera, getRenderer, onWindowResize } from './scene.js'
 import { setupLighting } from './lighting.js'
 import { loadModel, getLoadedModel } from './modelLoader.js'
@@ -39,6 +40,11 @@ async function main() {
 
   const { scene, camera, renderer, clock } = initScene()
   state.clock = clock
+  
+  window.__THREE_SCENE__ = scene
+  window.__THREE_CAMERA__ = camera
+  window.__THREE_RENDERER__ = renderer
+  window.__THREE__ = THREE
 
   setupLighting(scene)
   buildCaveStructure(scene)
@@ -57,7 +63,7 @@ async function main() {
     bindRaycastToScene(camera, renderer.domElement, model)
 
     // 从根源删除所有洞窟标题 Sprite（无论来自何处：旧缓存/其他模块）
-    // 保留飞天动画 Sprite（名称以"飞天"开头）
+    // 仅保留飞天动画 Sprite（名称以"飞天"开头）
     purgeCaveTitleSprites(scene)
 
     hideLoading()
@@ -163,10 +169,13 @@ function animate() {
     updateMinimap()
   }
 
-  // 定期清理洞窟标题 Sprite（每60帧检查一次，防止延迟加载模块重新创建）
+  // 定期清理旧洞窟标题 Sprite（每60帧检查一次，防止延迟加载模块重新创建）
   if (frameCountPurge++ % 60 === 0) {
     const scene = getScene()
-    if (scene) purgeCaveTitleSprites(scene)
+    if (scene) {
+      purgeCaveTitleSprites(scene)
+      purgeBackWallTextMeshes(scene)
+    }
   }
 
   const renderer = getRenderer()
@@ -180,7 +189,7 @@ let frameCountPurge = 0
 
 /**
  * 从场景中删除所有洞窟标题 Sprite
- * 保留飞天动画 Sprite（名称以"飞天"开头）
+ * 仅保留飞天动画 Sprite（名称以"飞天"开头）
  * 这是根因修复：无论文字来自旧缓存、其他模块、还是未来代码变更，都会被清理
  */
 function purgeCaveTitleSprites(scene) {
@@ -188,9 +197,9 @@ function purgeCaveTitleSprites(scene) {
   scene.traverse((child) => {
     if (child.isSprite) {
       const name = child.name || ''
-      // 保留飞天动画 Sprite
+      // 仅保留飞天动画 Sprite
       if (name.startsWith('飞天')) return
-      // 删除所有其他 Sprite（包括洞窟标题、窟号标签等）
+      // 删除所有其他 Sprite（包括洞窟标题、窟号标签、立牌文字等）
       spritesToRemove.push(child)
     }
   })
@@ -202,6 +211,83 @@ function purgeCaveTitleSprites(scene) {
   }
   if (spritesToRemove.length > 0) {
     console.log('[敦煌3DShow] 共清理 ' + spritesToRemove.length + ' 个非飞天 Sprite')
+  }
+}
+
+/**
+ * 从场景中删除后墙区域所有非结构对象（核弹级清理）
+ * 删除范围：5个洞窟后墙区域（x=15-17/22-24/29-31/36-38/43-45, y>0.5, |z|<1.5）
+ * 保留：墙壁、地板、顶棚、雕塑、壁画、飞天等已知结构
+ * 删除：任何其他对象（文字牌匾、立牌、标签、装饰等）
+ * 由渲染循环每60帧调用一次，确保后墙绝无文字
+ */
+function purgeBackWallTextMeshes(scene) {
+  const objectsToRemove = []
+  const backWallRanges = [
+    { xMin: 15, xMax: 17 },  // 285窟后墙
+    { xMin: 22, xMax: 24 },  // 45窟后墙
+    { xMin: 29, xMax: 31 },  // 217窟后墙
+    { xMin: 36, xMax: 38 },  // 17窟后墙
+    { xMin: 43, xMax: 45 },  // 3窟后墙
+  ]
+
+  scene.traverse((child) => {
+    // 跳过非可视化对象
+    if (!child.isMesh && !child.isSprite) return
+
+    const name = child.name || ''
+
+    // 保留已知的结构对象和交互对象
+    if (name.includes('后墙') || name.includes('右墙') || name.includes('地面') ||
+        name.includes('顶棚') || name.includes('走廊') || name.includes('入口') ||
+        name.includes('终点') || name.includes('门框') || name.includes('导览') ||
+        name.includes('边界') || name.includes('观景') || name.includes('平台') ||
+        name.includes('壁画') || name.includes('经变画') || name.includes('飞天') ||
+        name.includes('伎乐') || name.includes('藻井') || name.includes('千佛') ||
+        name.includes('供养人') || name.includes('暗纹') || name.includes('绢画') ||
+        name.includes('密宗') || name.includes('护法') ||
+        name.includes('彩塑') || name.includes('主佛') || name.includes('菩萨') ||
+        name.includes('佛龛') || name.includes('基座') || name.includes('背光') ||
+        name.includes('迦叶') || name.includes('阿难') || name.includes('天王') ||
+        name.includes('力士') || name.includes('弟子') || name.includes('僧人') ||
+        name.includes('法师') || name.includes('金刚') || name.includes('胁侍')) {
+      return
+    }
+
+    // 获取世界坐标
+    child.updateWorldMatrix(true, true)
+    const box = new THREE.Box3().setFromObject(child)
+    const center = new THREE.Vector3()
+    box.getCenter(center)
+
+    // 检查是否在后墙位置
+    const isNearBackWall = backWallRanges.some(
+      r => center.x >= r.xMin && center.x <= r.xMax && center.y > 0.5 && center.y < 4.0 && Math.abs(center.z) < 1.5
+    )
+
+    if (isNearBackWall) {
+      const size = new THREE.Vector3()
+      box.getSize(size)
+      // 删除所有非结构对象：
+      // - 扁平牌匾（z薄）
+      // - InstancedMesh（5个实例的立牌）
+      // - 中等尺寸对象（可能是文字几何体）
+      // - 任何不是墙壁厚度的对象
+      const isThickWall = size.z > 0.25 && size.x > 2.0 && size.y > 2.0 // 真正的后墙厚度 > 0.25
+      if (!isThickWall) {
+        objectsToRemove.push({ child, name, pos: center.clone(), size: size.clone() })
+      }
+    }
+  })
+
+  for (const { child, name, pos, size } of objectsToRemove) {
+    if (child.parent) {
+      child.parent.remove(child)
+      console.log('[敦煌3DShow] 清理后墙对象:', name || '(unnamed)',
+        'type:', child.isSprite ? 'Sprite' : (child.isInstancedMesh ? 'InstancedMesh' : 'Mesh'),
+        'pos:', `(${pos.x.toFixed(2)},${pos.y.toFixed(2)},${pos.z.toFixed(2)})`,
+        'size:', `(${size.x.toFixed(2)},${size.y.toFixed(2)},${size.z.toFixed(2)})`)
+    }
   }
 }
 
