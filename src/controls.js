@@ -21,14 +21,14 @@ const moveState = {
   up: false,
   down: false,
 }
-const moveSpeed = 0.12  // 移动速度（米/帧，降低以提升流畅度）
+const moveSpeed = 0.20  // 移动速度（米/帧，提升响应灵敏度）
 const moveVector = new THREE.Vector3()
 
 // 平滑缓动插值状态（优化WASD漫游流畅度，消除顿挫感）
 const velocity = new THREE.Vector3()    // 当前速度向量
 const targetVelocity = new THREE.Vector3() // 目标速度向量
-const smoothFactor = 0.15  // 缓动因子（0~1，越小越平滑）
-const decelerationFactor = 0.08  // 减速衰减因子（松开按键后平滑减速）
+const smoothFactor = 0.35  // 缓动因子（0~1，提升响应速度，按键立即生效）
+const decelerationFactor = 0.18  // 减速衰减因子（松开按键后较快停止，不飘）
 
 // 滚动环绕模式状态
 let scrollOrbitActive = false
@@ -77,7 +77,7 @@ export function initControls(cam, dom) {
 
   // --- 阻尼效果（提升平滑度，减少顿挫感）---
   controls.enableDamping = true
-  controls.dampingFactor = 0.12  // 提升阻尼系数，旋转更平滑
+  controls.dampingFactor = 0.18  // 提升阻尼响应速度，旋转更灵敏
 
   // 初始注视点
   controls.target.set(20, 0, 1.6)
