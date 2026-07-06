@@ -36,6 +36,9 @@ wall_texture_*.webp
 screenshot*.png
 debug.log
 
+# 提交目录（包含视频、文档等非网页必要文件）
+提交/
+
 # 系统文件
 .DS_Store
 Thumbs.db
