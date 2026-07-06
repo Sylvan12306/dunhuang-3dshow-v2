@@ -376,31 +376,37 @@ function createMuralFrame(frameMaterial, palette) {
 /**
  * 创建元代3窟右墙密宗壁画覆盖层
  * 覆盖GLB模型中唐代风格的右墙壁画，替换为元代密宗壁画
- * 位置：3窟右墙内侧（z≈-1.24），面朝洞窟内部
+ * 关键：z位置必须在原始壁画前方（更靠近洞窟中心），才能在视觉和射线检测中覆盖
  */
 export function createYuanDynastyMuralOverlay() {
   const texture = createYuanDynastyMuralTexture()
 
-  const geometry = new THREE.PlaneGeometry(3.8, 2.6)
+  const geometry = new THREE.PlaneGeometry(4.2, 3.2)
   const material = new THREE.MeshStandardMaterial({
     map: texture,
     roughness: 0.88,
     metalness: 0.0,
     emissive: 0x3a2e1e,
     emissiveIntensity: 0.18,
-    side: THREE.FrontSide,
+    side: THREE.DoubleSide,
+    depthTest: true,
+    depthWrite: true,
+    polygonOffset: true,
+    polygonOffsetFactor: -1,   // 确保覆盖层在深度测试中优先于原始壁画
+    polygonOffsetUnits: -1,
   })
 
   const mesh = new THREE.Mesh(geometry, material)
   // 3窟: caveX=36, CAVE_DEPTH=8, cave.z=1.6, CAVE_WIDTH=6
-  // 右墙内侧: z = 1.6 - 3 + 0.16 = -1.24
-  // 右上侧壁画: x偏向后墙(x≈41), y偏上方(y≈2.8)
-  mesh.position.set(41, 2.8, -1.24)
+  // 右墙位置: z = 1.6 - 3 = -1.4
+  // 覆盖层必须在原始壁画前方: z = -1.0（比原始壁画更靠内0.4米）
+  // 右上侧壁画覆盖: x偏向后墙(x≈40), y偏上方(y≈2.5)
+  mesh.position.set(40, 2.5, -1.0)
   mesh.name = '3_右墙_密宗主尊'
   mesh.castShadow = false
   mesh.receiveShadow = true
 
-  console.log('[洞窟结构] 元代3窟右墙密宗壁画覆盖层已创建')
+  console.log('[洞窟结构] 元代3窟右墙密宗壁画覆盖层已创建（z=-1.0，优先深度测试）')
   return mesh
 }
 

@@ -13,6 +13,56 @@ let domElement = null
 let model = null
 let statuePositions = null
 
+// ============================================================
+// 壁画区域位置映射（基于空间坐标匹配，解决GLB模型壁画名称不匹配问题）
+// 优先级高于名称匹配，确保每个洞窟的壁画点击显示正确朝代内容
+// 格式：[xMin, xMax, zMin, zMax, yMin, yMax, artifactKey]
+// ============================================================
+const MURAL_REGIONS = [
+  // --- 285窟（西魏）壁画区域 ---
+  [8, 16, -3.5, -0.5, 0.5, 4.0, '285_右墙_伎乐'],      // 右墙
+  [14, 16, 0.5, 3.5, 0.5, 4.0, '285_后墙_经变画'],      // 后墙偏左
+  [14, 16, -1.0, 1.0, 0.5, 4.0, '285_后墙_经变画'],     // 后墙中央
+  [8, 16, 0.5, 3.5, 0.5, 4.0, '285_左墙_飞天'],         // 左墙（偏左）
+
+  // --- 45窟（盛唐）壁画区域 ---
+  [15, 23, -3.5, -0.5, 0.5, 4.0, '45_右墙_市井'],       // 右墙
+  [21, 23, 0.5, 3.5, 0.5, 4.0, '45_左墙_供养人'],       // 后墙偏左
+  [21, 23, -1.0, 1.0, 0.5, 4.0, '45_后墙_经变画'],      // 后墙中央
+  [15, 23, 0.5, 3.5, 0.5, 4.0, '45_左墙_飞天'],         // 左墙
+
+  // --- 217窟（盛唐）壁画区域 ---
+  [22, 30, -3.5, -0.5, 0.5, 4.0, '217_右墙_藻井'],      // 右墙
+  [28, 30, 0.5, 3.5, 0.5, 4.0, '217_左墙_供养人'],      // 后墙偏左
+  [28, 30, -1.0, 1.0, 0.5, 4.0, '217_后墙_经变画'],     // 后墙中央
+  [22, 30, 0.5, 3.5, 0.5, 4.0, '217_左墙_飞天'],        // 左墙
+
+  // --- 17窟（晚唐）壁画区域 ---
+  [29, 37, -3.5, -0.5, 0.5, 4.0, '17_右墙_绢画'],       // 右墙
+  [35, 37, 0.5, 3.5, 0.5, 4.0, '17_左墙_绢画'],         // 后墙偏左
+  [35, 37, -1.0, 1.0, 0.5, 4.0, '17_后墙_绢画展'],      // 后墙中央
+  [29, 37, 0.5, 3.5, 0.5, 4.0, '17_左墙_晚唐僧人'],     // 左墙
+
+  // --- 3窟（元代）壁画区域（关键修复：确保匹配元代内容）---
+  [36, 44, -3.5, -0.5, 0.5, 4.0, '3_右墙_密宗主尊'],    // 右墙
+  [42, 44, 0.5, 3.5, 0.5, 4.0, '3_左墙_密宗供养'],      // 后墙偏左
+  [42, 44, -1.0, 1.0, 0.5, 4.0, '3_后墙_密宗经变画'],   // 后墙中央
+  [36, 44, 0.5, 3.5, 0.5, 4.0, '3_左墙_密宗千佛'],      // 左墙
+]
+
+/**
+ * 基于空间坐标匹配壁画区域
+ * 优先级最高，确保每个洞窟的壁画显示正确朝代内容
+ */
+function matchMuralByPoint(cx, cy, cz) {
+  for (const [xMin, xMax, zMin, zMax, yMin, yMax, key] of MURAL_REGIONS) {
+    if (cx >= xMin && cx <= xMax && cz >= zMin && cz <= zMax && cy >= yMin && cy <= yMax) {
+      return key
+    }
+  }
+  return null
+}
+
 // 文物解说数据库（根据 Blender 模型名称匹配）
 // 按 specificity 排序：长键优先匹配，避免短键误匹配
 // 每幅壁画都有独特的说明，包含朝代、历史意义、文化价值、现代意义
@@ -398,12 +448,21 @@ function onPointerClick(event) {
     const firstIntersect = intersects[0]
     const hitPoint = firstIntersect.point
 
+    // 1. 优先匹配雕塑位置（精度最高）
     const statueName = matchStatueByPoint(hitPoint.x, hitPoint.z)
     if (statueName) {
       showArtifactInfo(statueName)
       return
     }
 
+    // 2. 匹配壁画区域位置（解决GLB模型壁画名称不匹配问题）
+    const muralName = matchMuralByPoint(hitPoint.x, hitPoint.y, hitPoint.z)
+    if (muralName) {
+      showArtifactInfo(muralName)
+      return
+    }
+
+    // 3. 兜底：名称匹配
     for (const intersect of intersects) {
       const obj = intersect.object
 
@@ -461,6 +520,7 @@ function onPointerMove(event) {
     const firstIntersect = intersects[0]
     const hitPoint = firstIntersect.point
 
+    // 1. 雕塑悬停
     const statueName = matchStatueByPoint(hitPoint.x, hitPoint.z)
     if (statueName) {
       const obj = firstIntersect.object
@@ -472,6 +532,14 @@ function onPointerMove(event) {
       return
     }
 
+    // 2. 壁画区域悬停（显示指针样式）
+    const muralName = matchMuralByPoint(hitPoint.x, hitPoint.y, hitPoint.z)
+    if (muralName) {
+      domElement.style.cursor = 'pointer'
+      return
+    }
+
+    // 3. 名称匹配
     for (const intersect of intersects) {
       const obj = intersect.object
       if (obj.isInstancedMesh && obj.userData.instanceNames) {
