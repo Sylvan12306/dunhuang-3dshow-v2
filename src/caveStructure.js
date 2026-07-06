@@ -7,9 +7,6 @@
 import * as THREE from 'three'
 import { getDunhuangPalette } from './materials.js'
 
-const BASE_URL = import.meta.env.BASE_URL
-const textureLoader = new THREE.TextureLoader()
-
 // 洞窟位置数据（匹配 controls.js 中的 CAVE_POSITIONS）
 const CAVE_POSITIONS = [
   { x: 8,  y: 0, z: 1.6, name: '285窟', dynasty: '西魏' },
@@ -253,240 +250,58 @@ function buildSingleCave(parent, cave, index, materials) {
 
   // === 中央主尊佛龛（45窟盛唐，第一视觉焦点）===
   if (isMainCave) {
-    const mainPedestalX = caveX + CAVE_DEPTH - 1.5
-    const mainPedestalZ = cave.z
-
-    // a) 分层须弥座（3层递减方形台基）
-    // 须弥座底层
-    const xumiBaseMat = new THREE.MeshStandardMaterial({
-      color: palette.darkGold,
-      roughness: 0.5,
-      metalness: 0.18,
-      envMapIntensity: 0.35,
-    })
-    const xumiBottom = new THREE.Mesh(
-      new THREE.BoxGeometry(3.0, 0.15, 3.0),
-      xumiBaseMat
+    const pedestal = new THREE.Mesh(
+      new THREE.BoxGeometry(2.5, 0.3, 2.5),
+      new THREE.MeshStandardMaterial({
+        color: palette.darkGold,
+        roughness: 0.6,
+        metalness: 0.15,
+        envMapIntensity: 0.3,
+      })
     )
-    xumiBottom.position.set(mainPedestalX, 0.075, mainPedestalZ)
-    xumiBottom.receiveShadow = true
-    xumiBottom.castShadow = true
-    xumiBottom.name = '须弥座底层'
-    parent.add(xumiBottom)
+    pedestal.position.set(caveX + CAVE_DEPTH - 1.5, 0.15, cave.z)
+    pedestal.receiveShadow = true
+    pedestal.castShadow = true
+    pedestal.name = '主尊佛龛基座'
+    parent.add(pedestal)
 
-    // 须弥座中层（深金色）
-    const xumiMidMat = new THREE.MeshStandardMaterial({
-      color: 0x8B7225,
-      roughness: 0.48,
-      metalness: 0.2,
-      envMapIntensity: 0.38,
-    })
-    const xumiMiddle = new THREE.Mesh(
-      new THREE.BoxGeometry(2.6, 0.15, 2.6),
-      xumiMidMat
-    )
-    xumiMiddle.position.set(mainPedestalX, 0.075 + 0.15 + 0.02, mainPedestalZ)
-    xumiMiddle.receiveShadow = true
-    xumiMiddle.castShadow = true
-    xumiMiddle.name = '须弥座中层'
-    parent.add(xumiMiddle)
-
-    // 须弥座上层（金色 + emissive）
-    const xumiTopMat = new THREE.MeshStandardMaterial({
-      color: palette.darkGold,
-      roughness: 0.45,
-      metalness: 0.22,
-      envMapIntensity: 0.4,
-      emissive: palette.gold,
-      emissiveIntensity: 0.08,
-    })
-    const xumiTop = new THREE.Mesh(
-      new THREE.BoxGeometry(2.2, 0.2, 2.2),
-      xumiTopMat
-    )
-    xumiTop.position.set(mainPedestalX, 0.075 + 0.15 + 0.02 + 0.15 + 0.02, mainPedestalZ)
-    xumiTop.receiveShadow = true
-    xumiTop.castShadow = true
-    xumiTop.name = '须弥座上层'
-    parent.add(xumiTop)
-
-    // b) 多层背光光环
-    const haloX = mainPedestalX
-    const haloY = 2.0
-    const haloZ = mainPedestalZ
-
-    // 内环：金色 emissive发光
-    const innerHaloMat = new THREE.MeshStandardMaterial({
+    const haloGeometry = new THREE.TorusGeometry(1.2, 0.05, 8, 32)
+    const haloMaterial = new THREE.MeshStandardMaterial({
       color: palette.gold,
-      roughness: 0.35,
-      metalness: 0.35,
+      roughness: 0.4,
+      metalness: 0.3,
       envMapIntensity: 0.5,
-      emissive: palette.gold,
-      emissiveIntensity: 0.3,
-    })
-    const innerHalo = new THREE.Mesh(
-      new THREE.TorusGeometry(0.8, 0.04, 16, 64),
-      innerHaloMat
-    )
-    innerHalo.position.set(haloX, haloY, haloZ)
-    innerHalo.name = '背光内环'
-    parent.add(innerHalo)
-
-    // 中环：暗金色
-    const midHaloMat = new THREE.MeshStandardMaterial({
-      color: palette.darkGold,
-      roughness: 0.42,
-      metalness: 0.28,
-      envMapIntensity: 0.45,
       emissive: 0x4a3814,
-      emissiveIntensity: 0.1,
+      emissiveIntensity: 0.15,
     })
-    const midHalo = new THREE.Mesh(
-      new THREE.TorusGeometry(1.2, 0.03, 16, 64),
-      midHaloMat
-    )
-    midHalo.position.set(haloX, haloY, haloZ)
-    midHalo.name = '背光中环'
-    parent.add(midHalo)
-
-    // 外环：微光金色
-    const outerHaloMat = new THREE.MeshStandardMaterial({
-      color: palette.darkGold,
-      roughness: 0.5,
-      metalness: 0.2,
-      envMapIntensity: 0.4,
-      emissive: palette.gold,
-      emissiveIntensity: 0.05,
-    })
-    const outerHalo = new THREE.Mesh(
-      new THREE.TorusGeometry(1.6, 0.02, 16, 64),
-      outerHaloMat
-    )
-    outerHalo.position.set(haloX, haloY, haloZ)
-    outerHalo.name = '背光外环'
-    parent.add(outerHalo)
-
-    // 最外层光晕：半透明金色发光
-    const glowHaloMat = new THREE.MeshStandardMaterial({
-      color: palette.gold,
-      roughness: 0.6,
-      metalness: 0.1,
-      transparent: true,
-      opacity: 0.18,
-      emissive: palette.gold,
-      emissiveIntensity: 0.4,
-      side: THREE.DoubleSide,
-      depthWrite: false,
-    })
-    const glowHalo = new THREE.Mesh(
-      new THREE.RingGeometry(1.5, 2.2, 64),
-      glowHaloMat
-    )
-    glowHalo.position.set(haloX, haloY, haloZ)
-    glowHalo.name = '背光光晕'
-    parent.add(glowHalo)
-
-    // c) 佛龛拱顶（半圆拱）
-    const archMat = new THREE.MeshStandardMaterial({
-      color: palette.darkGold,
-      roughness: 0.45,
-      metalness: 0.2,
-      envMapIntensity: 0.4,
-      emissive: palette.gold,
-      emissiveIntensity: 0.06,
-    })
-    const arch = new THREE.Mesh(
-      new THREE.CylinderGeometry(1.8, 2.0, 0.3, 32, 1, false, 0, Math.PI),
-      archMat
-    )
-    // 旋转使半圆拱面向洞窟入口（z轴正方向）
-    arch.rotation.x = Math.PI / 2
-    arch.rotation.z = Math.PI
-    arch.position.set(mainPedestalX, 3.2, mainPedestalZ)
-    arch.name = '佛龛拱顶'
-    parent.add(arch)
+    const halo = new THREE.Mesh(haloGeometry, haloMaterial)
+    halo.position.set(caveX + CAVE_DEPTH - 1.5, 2.0, cave.z)
+    halo.name = '主尊背光'
+    parent.add(halo)
   }
 
-  // === 两侧造像基座（双层莲瓣基座，错落排布）===
-  // 莲瓣基座材质（复用，减少draw call）
-  const lotusBaseMat = new THREE.MeshStandardMaterial({
-    color: palette.caveWall,
-    roughness: 0.75,
-    metalness: 0.05,
-    envMapIntensity: 0.2,
-  })
-  const lotusTopMat = new THREE.MeshStandardMaterial({
-    color: palette.darkGold,
-    roughness: 0.5,
-    metalness: 0.18,
-    envMapIntensity: 0.35,
-  })
-  const lotusPetalMat = new THREE.MeshStandardMaterial({
-    color: palette.darkGold,
-    roughness: 0.55,
-    metalness: 0.15,
-    envMapIntensity: 0.3,
-    emissive: 0x3a2e1e,
-    emissiveIntensity: 0.05,
-  })
-
-  // 辅助函数：创建双层莲瓣基座
-  const createLotusPedestal = (baseX, baseZ, namePrefix) => {
-    const group = new THREE.Group()
-    // 底层：土色圆柱
-    const bottomLayer = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.7, 0.8, 0.1, 8),
-      lotusBaseMat
-    )
-    bottomLayer.position.y = 0.05
-    bottomLayer.receiveShadow = true
-    group.add(bottomLayer)
-
-    // 上层：深金色圆柱
-    const topLayer = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.5, 0.6, 0.12, 8),
-      lotusTopMat
-    )
-    topLayer.position.y = 0.1 + 0.06
-    topLayer.receiveShadow = true
-    group.add(topLayer)
-
-    // 8个莲瓣（扁球缩放后环绕上层排列）
-    for (let i = 0; i < 8; i++) {
-      const angle = (i / 8) * Math.PI * 2
-      const petal = new THREE.Mesh(
-        new THREE.SphereGeometry(0.12, 8, 6),
-        lotusPetalMat
-      )
-      // 缩放为扁椭球，模拟莲瓣
-      petal.scale.set(1, 0.4, 0.6)
-      const px = Math.cos(angle) * 0.55
-      const pz = Math.sin(angle) * 0.55
-      petal.position.set(px, 0.1 + 0.02, pz)
-      // 旋转使莲瓣朝外
-      petal.rotation.y = -angle
-      group.add(petal)
-    }
-
-    group.position.set(baseX, 0, baseZ)
-    group.name = namePrefix
-    parent.add(group)
-  }
-
+  // === 两侧造像基座（错落排布）===
   // 左侧造像基座：位置略前，z轴正方向（靠近后墙左侧）
-  createLotusPedestal(caveX + CAVE_DEPTH / 2 - 0.5, cave.z + 1.5, cave.name + '左侧莲瓣基座')
+  const leftPedestal = new THREE.Mesh(
+    new THREE.BoxGeometry(1.2, 0.2, 1.2),
+    wallMaterial  // 复用墙体材质，减少材质实例
+  )
+  leftPedestal.position.set(caveX + CAVE_DEPTH / 2 - 0.5, 0.1, cave.z + 1.5)
+  leftPedestal.receiveShadow = true
+  leftPedestal.castShadow = false
+  leftPedestal.name = cave.name + '左侧造像基座'
+  parent.add(leftPedestal)
 
   // 右侧造像基座：位置略后，z轴负方向
-  createLotusPedestal(caveX + CAVE_DEPTH / 2 + 0.8, cave.z - CAVE_WIDTH / 2 + 1, cave.name + '右侧莲瓣基座')
-
-  // === 洞窟入口装饰楣 ===
-  const lintel = new THREE.Mesh(
-    new THREE.BoxGeometry(0.15, 0.12, CAVE_WIDTH + 0.2),
-    frameMaterial  // 复用画框金色材质
+  const rightPedestal = new THREE.Mesh(
+    new THREE.BoxGeometry(1.2, 0.2, 1.2),
+    wallMaterial  // 复用墙体材质
   )
-  lintel.position.set(caveX, 3.0, cave.z)
-  lintel.name = cave.name + '入口装饰楣'
-  parent.add(lintel)
+  rightPedestal.position.set(caveX + CAVE_DEPTH / 2 + 0.8, 0.1, cave.z - CAVE_WIDTH / 2 + 1)
+  rightPedestal.receiveShadow = true
+  rightPedestal.castShadow = false
+  rightPedestal.name = cave.name + '右侧造像基座'
+  parent.add(rightPedestal)
 
   // === 洞窟标题文字Sprite（已删除，不再显示洞窟名称标签）===
   // 标题格式：朝代 + 窟号（如"西魏 285窟"、"盛唐 45窟"）
@@ -557,136 +372,6 @@ function createMuralFrame(frameMaterial, palette) {
 
   return frameGroup
 }
-
-/**
- * 创建真实壁画纹理覆盖层
- * 使用TextureLoader加载真实纹理图片，覆盖程序化绘制的壁画
- * @param {number} caveX - 洞窟X坐标
- * @param {number} caveZ - 洞窟Z坐标
- * @param {string} side - 壁画位置 'right'(右墙) / 'left'(后墙偏左) / 'back'(后墙中央)
- * @param {string} textureUrl - 纹理图片URL
- * @param {string} nameKey - raycaster匹配的文物key
- * @returns {THREE.Mesh} 壁画覆盖层mesh
- */
-function createRealMuralOverlay(caveX, caveZ, side, textureUrl, nameKey) {
-  const texture = textureLoader.load(textureUrl)
-  texture.colorSpace = THREE.SRGBColorSpace
-
-  const geometry = new THREE.PlaneGeometry(4.5, 3.5)
-  const material = new THREE.MeshStandardMaterial({
-    map: texture,
-    roughness: 0.85,
-    metalness: 0.0,
-    emissive: 0x3a2e1e,
-    emissiveIntensity: 0.15,
-    side: THREE.DoubleSide,
-    depthTest: true,
-    depthWrite: true,
-    polygonOffset: true,
-    polygonOffsetFactor: -2,
-    polygonOffsetUnits: -2,
-  })
-
-  const mesh = new THREE.Mesh(geometry, material)
-
-  // 根据墙面位置设置坐标和旋转
-  if (side === 'right') {
-    // 右墙: z轴负方向墙面，朝向洞窟内部
-    mesh.position.set(caveX + CAVE_DEPTH / 2, 2.2, caveZ - CAVE_WIDTH / 2 + 0.16)
-    mesh.rotation.y = Math.PI / 2
-  } else if (side === 'left') {
-    // 后墙偏左（左壁画框位置）: x轴正方向墙面，朝向洞窟内部
-    mesh.position.set(caveX + CAVE_DEPTH - 0.16, 2.2, caveZ + 1.5)
-    mesh.rotation.y = -Math.PI / 2
-  } else if (side === 'back') {
-    // 后墙中央: x轴正方向墙面，朝向洞窟内部
-    mesh.position.set(caveX + CAVE_DEPTH - 0.16, 2.2, caveZ)
-    mesh.rotation.y = -Math.PI / 2
-  }
-
-  mesh.name = nameKey
-  mesh.castShadow = false
-  mesh.receiveShadow = true
-
-  return mesh
-}
-
-/**
- * 创建所有洞窟的真实壁画纹理覆盖层
- * 为5个洞窟的左右墙分别创建真实纹理覆盖
- * @returns {THREE.Mesh[]} 覆盖层mesh数组
- */
-export function createAllMuralOverlays() {
-  const overlays = []
-
-  // 壁画配置: [caveIndex, side, textureFile, nameKey]
-  const muralConfig = [
-    // 285窟（西魏）- 纹理内容与raycaster key严格对应
-    { caveIdx: 0, side: 'right', tex: 'mural_285_right.png', key: '285_右墙_伎乐' },
-    { caveIdx: 0, side: 'left',  tex: 'mural_285_left.png',  key: '285_后墙_经变画' },
-    // 45窟（盛唐）- 左墙纹理为飞天，匹配飞天key
-    { caveIdx: 1, side: 'right', tex: 'mural_45_right.png', key: '45_右墙_市井' },
-    { caveIdx: 1, side: 'left',  tex: 'mural_45_left.png',  key: '45_左墙_飞天' },
-    // 217窟（盛唐）- 右墙纹理为法华经变山水，匹配后墙经变画key
-    { caveIdx: 2, side: 'right', tex: 'mural_217_right.png', key: '217_后墙_经变画' },
-    { caveIdx: 2, side: 'left',  tex: 'mural_217_left.png',  key: '217_左墙_供养人' },
-    // 17窟（晚唐）- 左墙纹理为僧人画像，匹配晚唐僧人key
-    { caveIdx: 3, side: 'right', tex: 'mural_17_right.png', key: '17_右墙_绢画' },
-    { caveIdx: 3, side: 'left',  tex: 'mural_17_left.png',  key: '17_左墙_晚唐僧人' },
-    // 3窟（元代）- 左墙纹理为密宗千佛，匹配密宗千佛key
-    { caveIdx: 4, side: 'left',  tex: 'mural_3_left.png',   key: '3_左墙_密宗千佛' },
-  ]
-
-  muralConfig.forEach(({ caveIdx, side, tex, key }) => {
-    const cave = CAVE_POSITIONS[caveIdx]
-    const textureUrl = BASE_URL + 'textures/' + tex
-    const overlay = createRealMuralOverlay(cave.x, cave.z, side, textureUrl, key)
-    overlays.push(overlay)
-  })
-
-  console.log('[洞窟结构] 已创建 ' + overlays.length + ' 个真实壁画纹理覆盖层')
-  return overlays
-}
-
-/**
- * 创建元代3窟右墙密宗壁画覆盖层
- * 覆盖GLB模型中唐代风格的右墙壁画，替换为元代密宗壁画
- * 关键：z位置必须在原始壁画前方（更靠近洞窟中心），才能在视觉和射线检测中覆盖
- */
-export function createYuanDynastyMuralOverlay() {
-  const textureUrl = BASE_URL + 'textures/mural_3_right.png'
-  const texture = textureLoader.load(textureUrl)
-  texture.colorSpace = THREE.SRGBColorSpace
-
-  const geometry = new THREE.PlaneGeometry(4.2, 3.2)
-  const material = new THREE.MeshStandardMaterial({
-    map: texture,
-    roughness: 0.88,
-    metalness: 0.0,
-    emissive: 0x3a2e1e,
-    emissiveIntensity: 0.18,
-    side: THREE.DoubleSide,
-    depthTest: true,
-    depthWrite: true,
-    polygonOffset: true,
-    polygonOffsetFactor: -2,   // 与其他壁画覆盖层一致，确保在GLB壁画前方
-    polygonOffsetUnits: -2,
-  })
-
-  const mesh = new THREE.Mesh(geometry, material)
-  // 3窟: caveX=36, CAVE_DEPTH=8, cave.z=1.6, CAVE_WIDTH=6
-  // 右墙: 与其他洞窟右墙覆盖层位置统一
-  mesh.position.set(36 + CAVE_DEPTH / 2, 2.2, 1.6 - CAVE_WIDTH / 2 + 0.16)
-  mesh.rotation.y = Math.PI / 2
-  mesh.name = '3_右墙_密宗主尊'
-  mesh.castShadow = false
-  mesh.receiveShadow = true
-
-  console.log('[洞窟结构] 元代3窟右墙密宗壁画覆盖层已创建（使用真实纹理，z=-1.0，优先深度测试）')
-  return mesh
-}
-
-
 
 /**
  * 获取洞窟位置数据

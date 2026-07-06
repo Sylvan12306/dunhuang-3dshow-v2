@@ -48,7 +48,7 @@ export function initScene() {
   renderer.toneMapping = THREE.ACESFilmicToneMapping // 电影级色调映射（暗部提亮）
   renderer.toneMappingExposure = 1.15                  // 提升曝光，暗部提亮，消除死黑
   renderer.shadowMap.enabled = true                     // 启用阴影
-  renderer.shadowMap.type = THREE.PCFShadowMap           // PCF阴影（比PCFSoft快2-3倍，视觉差异极小）
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap      // 柔和阴影
   renderer.sortObjects = true                           // 按距离排序，减少过度绘制
   renderer.info.autoReset = true                        // 自动重置渲染信息
 

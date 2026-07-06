@@ -9,7 +9,6 @@
  * 6. AR透视模式（手持设备透视叠加3D洞窟）
  *
  * 技术栈：Three.js WebXR API + XRInputSourceArray
- * 使用动态 import 加载 VRButton，避免首屏加载增加体积
  */
 import * as THREE from 'three'
 
@@ -40,240 +39,46 @@ let vrInfoText = null
 // VR模式回调
 let onArtifactClickVR = null  // VR中点击展品的回调
 
-// 动态加载的 VRButton 引用
-let vrButtonElement = null
-
 /**
  * 初始化 WebXR VR 模式
- * 支持 initVR(renderer) 单参数调用，也兼容 initVR(renderer, camera, scene, controls) 四参数调用
  * @param {THREE.WebGLRenderer} rdr - 渲染器
- * @param {THREE.Camera} [cam] - 相机（可选，向后兼容）
- * @param {THREE.Scene} [scn] - 场景（可选，向后兼容）
- * @param {Object} [ctrl] - OrbitControls控制器（可选，向后兼容）
+ * @param {THREE.Camera} cam - 相机
+ * @param {THREE.Scene} scn - 场景
+ * @param {Object} ctrl - OrbitControls控制器
  */
 export function initVR(rdr, cam, scn, ctrl) {
   renderer = rdr
-
-  // 兼容四参数调用和单参数调用
-  if (cam) camera = cam
-  if (scn) scene = scn
-  if (ctrl) controls = ctrl
+  camera = cam
+  scene = scn
+  controls = ctrl
 
   // 启用 WebXR 支持
   renderer.xr.enabled = true
 
-  // 动态加载 VRButton 并检测设备支持
-  loadVRButton()
-
-  // 监听VR会话状态
-  renderer.xr.addEventListener('sessionstart', onVRSessionStart)
-  renderer.xr.addEventListener('sessionend', onVRSessionEnd)
-
-  // 设置VR控制器（需要场景已存在）
-  if (scene) {
-    setupVRControllers()
-    createTeleportMarker()
-    createVRHUD()
-  }
-
-  console.log('[VR] WebXR VR 模式初始化完成')
-}
-
-/**
- * 动态加载 Three.js VRButton
- * 避免首屏加载增加体积
- */
-async function loadVRButton() {
+  // 创建VR按钮并检测设备支持
   try {
-    const module = await import('three/addons/webxr/VRButton.js')
-    vrButtonElement = module.VRButton.createButton(renderer)
-    vrButtonElement.id = 'VRButton'
-    vrButtonElement.style.display = 'none'
-    document.body.appendChild(vrButtonElement)
-    console.log('[VR] VRButton 动态加载成功')
+    const vrButton = VRButton.createButton(renderer)
+    vrButton.id = 'VRButton'
+    vrButton.style.display = 'none'
+    document.body.appendChild(vrButton)
+
+    // 监听VR会话状态
+    renderer.xr.addEventListener('sessionstart', onVRSessionStart)
+    renderer.xr.addEventListener('sessionend', onVRSessionEnd)
+
+    console.log('[VR] WebXR VR 模式初始化完成')
   } catch (e) {
-    console.warn('[VR] Three.js VRButton 加载失败，使用内联实现:', e.message)
-    // 降级使用内联VRButton
-    vrButtonElement = createInlineVRButton()
-    vrButtonElement.id = 'VRButton'
-    vrButtonElement.style.display = 'none'
-    document.body.appendChild(vrButtonElement)
-  }
-}
-
-/**
- * 内联 VRButton 实现（Three.js VRButton 不可用时的降级方案）
- */
-function createInlineVRButton() {
-  const button = document.createElement('button')
-
-  function showEnterVR() {
-    let currentSession = null
-    async function onSessionStarted(session) {
-      session.addEventListener('end', onSessionEnded)
-      await renderer.xr.setSession(session)
-      button.textContent = 'EXIT VR'
-      currentSession = session
-    }
-    function onSessionEnded() {
-      currentSession.removeEventListener('end', onSessionEnded)
-      button.textContent = 'ENTER VR'
-      currentSession = null
-    }
-    button.style.display = ''
-    button.style.cursor = 'pointer'
-    button.style.cssText +=
-      ';background:rgba(26,20,16,0.8);color:#D4AF37;' +
-      'border:1px solid rgba(139,105,20,0.5);padding:8px 16px;' +
-      'border-radius:4px;font-size:12px;letter-spacing:2px;position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:100;'
-    button.textContent = 'ENTER VR'
-    button.onselectstart = function() { return false }
-    button.onclick = function() {
-      if (currentSession === null) {
-        const sessionInit = {
-          optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking']
-        }
-        navigator.xr.requestSession('immersive-vr', sessionInit).then(onSessionStarted)
-      } else {
-        currentSession.end()
-      }
-    }
+    console.warn('[VR] WebXR 不可用: ' + e.message)
   }
 
-  function disableButton() {
-    button.style.display = ''
-    button.style.cursor = 'auto'
-    button.style.cssText +=
-      ';background:rgba(60,40,20,0.5);color:#6a5a3a;' +
-      'border:1px solid rgba(139,105,20,0.2);padding:8px 16px;' +
-      'border-radius:4px;font-size:12px;position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:100;'
-    button.textContent = 'VR NOT AVAILABLE'
-    button.onselectstart = function() { return false }
-    button.onclick = null
-  }
+  // 设置VR控制器
+  setupVRControllers()
 
-  if ('xr' in navigator) {
-    navigator.xr.isSessionSupported('immersive-vr').then(function(supported) {
-      if (supported) {
-        showEnterVR()
-      } else {
-        disableButton()
-      }
-    })
-  } else {
-    disableButton()
-  }
+  // 创建传送标记
+  createTeleportMarker()
 
-  return button
-}
-
-/**
- * 进入 VR 模式
- * @param {THREE.WebGLRenderer} rdr - 渲染器
- */
-export async function enterVR(rdr) {
-  if (rdr) renderer = rdr
-
-  // 检查浏览器是否支持 WebXR
-  if (!navigator.xr) {
-    showVRNotSupportedTip('您的浏览器不支持 WebXR，请使用支持 VR 的浏览器（如 Chrome/Edge）')
-    return false
-  }
-
-  try {
-    const supported = await navigator.xr.isSessionSupported('immersive-vr')
-    if (!supported) {
-      showVRNotSupportedTip('您的设备不支持 VR 沉浸模式，将进入沉浸浏览模式')
-      toggleImmersiveMode()
-      return false
-    }
-  } catch (e) {
-    showVRNotSupportedTip('VR 检测失败: ' + e.message)
-    return false
-  }
-
-  // 尝试通过 VRButton 进入 VR
-  if (vrButtonElement) {
-    vrButtonElement.click()
-    return true
-  }
-
-  // 直接请求 VR 会话
-  try {
-    const sessionInit = {
-      optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking']
-    }
-    const session = await navigator.xr.requestSession('immersive-vr', sessionInit)
-    await renderer.xr.setSession(session)
-    xrSession = session
-    session.addEventListener('end', () => { xrSession = null })
-    return true
-  } catch (e) {
-    console.warn('[VR] 进入VR失败:', e.message)
-    showVRNotSupportedTip('进入VR失败: ' + e.message)
-    return false
-  }
-}
-
-/**
- * 退出 VR 模式
- * @param {THREE.WebGLRenderer} rdr - 渲染器
- */
-export function exitVR(rdr) {
-  if (xrSession) {
-    xrSession.end()
-    xrSession = null
-  }
-
-  // 如果在沉浸模式，也退出
-  if (isImmersiveMode) {
-    toggleImmersiveMode()
-  }
-}
-
-/**
- * 显示 VR 不支持提示
- */
-function showVRNotSupportedTip(message) {
-  // 创建友好提示弹窗
-  let tipEl = document.getElementById('vr-not-supported-tip')
-  if (!tipEl) {
-    tipEl = document.createElement('div')
-    tipEl.id = 'vr-not-supported-tip'
-    tipEl.style.cssText =
-      'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);' +
-      'background:linear-gradient(135deg,rgba(26,20,16,0.96),rgba(34,26,18,0.96));' +
-      'border:1px solid rgba(139,105,20,0.4);border-radius:4px;padding:24px 32px;' +
-      'color:#C9B89C;z-index:200;backdrop-filter:blur(12px);' +
-      'box-shadow:0 8px 40px rgba(0,0,0,0.5);text-align:center;max-width:360px;'
-
-    const title = document.createElement('div')
-    title.style.cssText = 'color:#D4AF37;font-size:16px;letter-spacing:3px;margin-bottom:12px;font-weight:300;'
-    title.textContent = 'VR 模式提示'
-
-    const msg = document.createElement('div')
-    msg.id = 'vr-tip-message'
-    msg.style.cssText = 'font-size:13px;line-height:1.8;color:#b8a888;font-weight:300;'
-    tipEl.appendChild(title)
-    tipEl.appendChild(msg)
-
-    const closeBtn = document.createElement('button')
-    closeBtn.style.cssText =
-      'margin-top:16px;background:rgba(212,175,55,0.1);border:1px solid #D4AF37;' +
-      'color:#D4AF37;padding:6px 20px;border-radius:3px;cursor:pointer;' +
-      'font-size:12px;letter-spacing:2px;transition:all 0.3s;'
-    closeBtn.textContent = '知道了'
-    closeBtn.addEventListener('click', () => { tipEl.style.display = 'none' })
-    closeBtn.addEventListener('mouseenter', () => { closeBtn.style.background = 'rgba(212,175,55,0.2)' })
-    closeBtn.addEventListener('mouseleave', () => { closeBtn.style.background = 'rgba(212,175,55,0.1)' })
-    tipEl.appendChild(closeBtn)
-
-    document.body.appendChild(tipEl)
-  }
-
-  const msgEl = tipEl.querySelector('#vr-tip-message')
-  if (msgEl) msgEl.textContent = message
-  tipEl.style.display = 'block'
+  // 创建VR空间HUD
+  createVRHUD()
 }
 
 /**
@@ -522,10 +327,8 @@ function onVRSessionStart() {
   // 显示VR HUD
   if (vrHUDGroup) vrHUDGroup.visible = true
 
-  // VR模式下调整相机高度（人眼1.6m）
-  if (camera) {
-    camera.position.y = Math.max(camera.position.y, 1.6)
-  }
+  // VR模式下调整玩家高度（人眼1.6m）
+  // WebXR会自动处理头部追踪，无需手动设置相机位置
 }
 
 /**
@@ -916,4 +719,70 @@ export function getVRState() {
  */
 export function isInVRMode() {
   return isVREnabled || isImmersiveMode
+}
+
+// VRButton辅助类（内联，避免外部依赖问题）
+const VRButton = {
+  createButton: function(renderer) {
+    const button = document.createElement('button')
+
+    function showEnterVR() {
+      let currentSession = null
+      async function onSessionStarted(session) {
+        session.addEventListener('end', onSessionEnded)
+        await renderer.xr.setSession(session)
+        button.textContent = 'EXIT VR'
+        currentSession = session
+      }
+      function onSessionEnded() {
+        currentSession.removeEventListener('end', onSessionEnded)
+        button.textContent = 'ENTER VR'
+        currentSession = null
+      }
+      button.style.display = ''
+      button.style.cursor = 'pointer'
+      button.style.cssText +=
+        ';background:rgba(26,20,16,0.8);color:#D4AF37;' +
+        'border:1px solid rgba(139,105,20,0.5);padding:8px 16px;' +
+        'border-radius:4px;font-size:12px;letter-spacing:2px;position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:100;'
+      button.textContent = 'ENTER VR'
+      button.onselectstart = function() { return false }
+      button.onclick = function() {
+        if (currentSession === null) {
+          const sessionInit = {
+            optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking']
+          }
+          navigator.xr.requestSession('immersive-vr', sessionInit).then(onSessionStarted)
+        } else {
+          currentSession.end()
+        }
+      }
+    }
+
+    function disableButton() {
+      button.style.display = ''
+      button.style.cursor = 'auto'
+      button.style.cssText +=
+        ';background:rgba(60,40,20,0.5);color:#6a5a3a;' +
+        'border:1px solid rgba(139,105,20,0.2);padding:8px 16px;' +
+        'border-radius:4px;font-size:12px;position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:100;'
+      button.textContent = 'VR NOT AVAILABLE'
+      button.onselectstart = function() { return false }
+      button.onclick = null
+    }
+
+    if ('xr' in navigator) {
+      navigator.xr.isSessionSupported('immersive-vr').then(function(supported) {
+        if (supported) {
+          showEnterVR()
+        } else {
+          disableButton()
+        }
+      })
+    } else {
+      disableButton()
+    }
+
+    return button
+  }
 }

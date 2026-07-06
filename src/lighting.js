@@ -50,9 +50,9 @@ export function setupLighting(scene) {
   const dirMain = new THREE.DirectionalLight(WARM_KEY_COLOR, 0.7)
   dirMain.position.set(8, 6, 4)
   dirMain.castShadow = true
-  // 阴影分辨率512（足够展示洞窟场景，比1024节省75%GPU开销）
-  dirMain.shadow.mapSize.width = 512
-  dirMain.shadow.mapSize.height = 512
+  // 适度阴影分辨率，平衡画质与性能
+  dirMain.shadow.mapSize.width = 1024
+  dirMain.shadow.mapSize.height = 1024
   dirMain.shadow.camera.near = 0.5
   dirMain.shadow.camera.far = 60
   dirMain.shadow.camera.left = -35
@@ -81,8 +81,8 @@ export function setupLighting(scene) {
   dirLights.push(dirFar)
 
   // ============================================================
-  // 第四层：点光源 - 造像主光（精简版：每窟1个核心光源）
-  // 优化：合并造像光+壁画光为1个光源，大幅减少实时光照计算
+  // 第四层：点光源 - 造像主光 + 壁画补光（精简版）
+  // 优化：每个洞窟仅保留2个核心光源（主光+壁画光），大幅减少实时光照计算
   // ============================================================
   const pointLights = []
 
@@ -98,11 +98,25 @@ export function setupLighting(scene) {
   cavePositions.forEach((pos, i) => {
     const sculptureX = pos.x + 6.5  // 佛龛造像位置
 
-    // --- 造像+壁画统一光源：暖金光同时照亮佛像和壁画 ---
-    const mainPL = new THREE.PointLight(WARM_KEY_COLOR, 1.5, 12, 2)
-    mainPL.position.set(sculptureX - 1.5, 2.0, pos.z)
+    // --- 造像定向主光：从正前方打亮佛像 ---
+    const mainPL = new THREE.PointLight(WARM_KEY_COLOR, 1.2, 10, 2)
+    mainPL.position.set(sculptureX - 2, 1.8, pos.z)
     scene.add(mainPL)
     pointLights.push(mainPL)
+
+    // --- 壁画专属补光灯：居中照射壁画区域 ---
+    const muralLight = new THREE.PointLight(MURAL_LIGHT_COLOR, 0.9, 8, 2)
+    muralLight.position.set(sculptureX - 1, 2.0, pos.z)
+    scene.add(muralLight)
+    pointLights.push(muralLight)
+
+    // 中央主尊（45窟盛唐）额外加强光照
+    if (i === 1) {
+      const focusLight = new THREE.PointLight(WARM_KEY_COLOR, 0.6, 10, 2)
+      focusLight.position.set(sculptureX - 1, 3.0, pos.z)
+      scene.add(focusLight)
+      pointLights.push(focusLight)
+    }
   })
 
   // ============================================================
