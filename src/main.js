@@ -10,7 +10,7 @@ import { initScene, getScene, getCamera, getRenderer, onWindowResize } from './s
 import { setupLighting } from './lighting.js'
 import { loadModel, getLoadedModel } from './modelLoader.js'
 import { enhancePBRMaterials } from './materials.js'
-import { buildCaveStructure } from './caveStructure.js'
+import { buildCaveStructure, createYuanDynastyMuralOverlay } from './caveStructure.js'
 import {
   initControls, getControls,
   updateWASDMove, flyToCave,
@@ -61,6 +61,10 @@ async function main() {
     enhancePBRMaterials(model)
     scene.add(model)
     bindRaycastToScene(camera, renderer.domElement, model)
+
+    // 元代3窟右墙壁画覆盖层（覆盖GLB中不匹配的唐代壁画）
+    const yuanMural = createYuanDynastyMuralOverlay()
+    model.add(yuanMural)
 
     // 从根源删除所有洞窟标题 Sprite（无论来自何处：旧缓存/其他模块）
     // 仅保留飞天动画 Sprite（名称以"飞天"开头）
