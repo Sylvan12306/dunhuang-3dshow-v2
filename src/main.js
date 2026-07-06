@@ -10,13 +10,15 @@ import { initScene, getScene, getCamera, getRenderer, onWindowResize } from './s
 import { setupLighting } from './lighting.js'
 import { loadModel, getLoadedModel } from './modelLoader.js'
 import { enhancePBRMaterials } from './materials.js'
-import { buildCaveStructure, createYuanDynastyMuralOverlay } from './caveStructure.js'
+import { buildCaveStructure, createYuanDynastyMuralOverlay, createAllMuralOverlays } from './caveStructure.js'
 import {
   initControls, getControls,
   updateWASDMove, flyToCave,
   getCurrentCave, getCavePositions, updateScrollOrbit,
 } from './controls.js'
 import { initRaycaster, bindRaycastToScene } from './raycaster.js'
+import { exportModelToGLTF, exportModelToGLB } from './exportModel.js'
+import { initVR, enterVR } from './vr.js'
 
 // 全局状态
 const state = {
@@ -66,6 +68,10 @@ async function main() {
     const yuanMural = createYuanDynastyMuralOverlay()
     model.add(yuanMural)
 
+    // 所有洞窟壁画真实纹理覆盖层
+    const muralOverlays = createAllMuralOverlays()
+    muralOverlays.forEach(overlay => model.add(overlay))
+
     // 从根源删除所有洞窟标题 Sprite（无论来自何处：旧缓存/其他模块）
     // 仅保留飞天动画 Sprite（名称以"飞天"开头）
     purgeCaveTitleSprites(scene)
@@ -74,6 +80,9 @@ async function main() {
 
     hideLoading()
     showUI()
+
+    // 初始化 WebXR VR 模式
+    initVR(renderer)
 
     console.log('[敦煌3DShow] 初始化完成，模型已渲染')
 
@@ -324,6 +333,17 @@ function showUI() {
       document.exitFullscreen()
     }
   })
+
+  // 导出3D模型按钮（数实融合）
+  document.getElementById('btn-export').addEventListener('click', () => {
+    exportModelToGLB(scene)
+  })
+
+  // VR沉浸体验按钮
+  const vrBtn = document.getElementById('btn-vr')
+  if (vrBtn) {
+    vrBtn.addEventListener('click', () => enterVR(renderer))
+  }
 
   document.getElementById('btn-guide').addEventListener('click', () => {
     document.getElementById('guide-modal').style.display = 'flex'

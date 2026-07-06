@@ -7,6 +7,9 @@
 import * as THREE from 'three'
 import { getDunhuangPalette } from './materials.js'
 
+const BASE_URL = import.meta.env.BASE_URL
+const textureLoader = new THREE.TextureLoader()
+
 // 洞窟位置数据（匹配 controls.js 中的 CAVE_POSITIONS）
 const CAVE_POSITIONS = [
   { x: 8,  y: 0, z: 1.6, name: '285窟', dynasty: '西魏' },
@@ -250,58 +253,240 @@ function buildSingleCave(parent, cave, index, materials) {
 
   // === 中央主尊佛龛（45窟盛唐，第一视觉焦点）===
   if (isMainCave) {
-    const pedestal = new THREE.Mesh(
-      new THREE.BoxGeometry(2.5, 0.3, 2.5),
-      new THREE.MeshStandardMaterial({
-        color: palette.darkGold,
-        roughness: 0.6,
-        metalness: 0.15,
-        envMapIntensity: 0.3,
-      })
-    )
-    pedestal.position.set(caveX + CAVE_DEPTH - 1.5, 0.15, cave.z)
-    pedestal.receiveShadow = true
-    pedestal.castShadow = true
-    pedestal.name = '主尊佛龛基座'
-    parent.add(pedestal)
+    const mainPedestalX = caveX + CAVE_DEPTH - 1.5
+    const mainPedestalZ = cave.z
 
-    const haloGeometry = new THREE.TorusGeometry(1.2, 0.05, 8, 32)
-    const haloMaterial = new THREE.MeshStandardMaterial({
-      color: palette.gold,
-      roughness: 0.4,
-      metalness: 0.3,
-      envMapIntensity: 0.5,
-      emissive: 0x4a3814,
-      emissiveIntensity: 0.15,
+    // a) 分层须弥座（3层递减方形台基）
+    // 须弥座底层
+    const xumiBaseMat = new THREE.MeshStandardMaterial({
+      color: palette.darkGold,
+      roughness: 0.5,
+      metalness: 0.18,
+      envMapIntensity: 0.35,
     })
-    const halo = new THREE.Mesh(haloGeometry, haloMaterial)
-    halo.position.set(caveX + CAVE_DEPTH - 1.5, 2.0, cave.z)
-    halo.name = '主尊背光'
-    parent.add(halo)
+    const xumiBottom = new THREE.Mesh(
+      new THREE.BoxGeometry(3.0, 0.15, 3.0),
+      xumiBaseMat
+    )
+    xumiBottom.position.set(mainPedestalX, 0.075, mainPedestalZ)
+    xumiBottom.receiveShadow = true
+    xumiBottom.castShadow = true
+    xumiBottom.name = '须弥座底层'
+    parent.add(xumiBottom)
+
+    // 须弥座中层（深金色）
+    const xumiMidMat = new THREE.MeshStandardMaterial({
+      color: 0x8B7225,
+      roughness: 0.48,
+      metalness: 0.2,
+      envMapIntensity: 0.38,
+    })
+    const xumiMiddle = new THREE.Mesh(
+      new THREE.BoxGeometry(2.6, 0.15, 2.6),
+      xumiMidMat
+    )
+    xumiMiddle.position.set(mainPedestalX, 0.075 + 0.15 + 0.02, mainPedestalZ)
+    xumiMiddle.receiveShadow = true
+    xumiMiddle.castShadow = true
+    xumiMiddle.name = '须弥座中层'
+    parent.add(xumiMiddle)
+
+    // 须弥座上层（金色 + emissive）
+    const xumiTopMat = new THREE.MeshStandardMaterial({
+      color: palette.darkGold,
+      roughness: 0.45,
+      metalness: 0.22,
+      envMapIntensity: 0.4,
+      emissive: palette.gold,
+      emissiveIntensity: 0.08,
+    })
+    const xumiTop = new THREE.Mesh(
+      new THREE.BoxGeometry(2.2, 0.2, 2.2),
+      xumiTopMat
+    )
+    xumiTop.position.set(mainPedestalX, 0.075 + 0.15 + 0.02 + 0.15 + 0.02, mainPedestalZ)
+    xumiTop.receiveShadow = true
+    xumiTop.castShadow = true
+    xumiTop.name = '须弥座上层'
+    parent.add(xumiTop)
+
+    // b) 多层背光光环
+    const haloX = mainPedestalX
+    const haloY = 2.0
+    const haloZ = mainPedestalZ
+
+    // 内环：金色 emissive发光
+    const innerHaloMat = new THREE.MeshStandardMaterial({
+      color: palette.gold,
+      roughness: 0.35,
+      metalness: 0.35,
+      envMapIntensity: 0.5,
+      emissive: palette.gold,
+      emissiveIntensity: 0.3,
+    })
+    const innerHalo = new THREE.Mesh(
+      new THREE.TorusGeometry(0.8, 0.04, 16, 64),
+      innerHaloMat
+    )
+    innerHalo.position.set(haloX, haloY, haloZ)
+    innerHalo.name = '背光内环'
+    parent.add(innerHalo)
+
+    // 中环：暗金色
+    const midHaloMat = new THREE.MeshStandardMaterial({
+      color: palette.darkGold,
+      roughness: 0.42,
+      metalness: 0.28,
+      envMapIntensity: 0.45,
+      emissive: 0x4a3814,
+      emissiveIntensity: 0.1,
+    })
+    const midHalo = new THREE.Mesh(
+      new THREE.TorusGeometry(1.2, 0.03, 16, 64),
+      midHaloMat
+    )
+    midHalo.position.set(haloX, haloY, haloZ)
+    midHalo.name = '背光中环'
+    parent.add(midHalo)
+
+    // 外环：微光金色
+    const outerHaloMat = new THREE.MeshStandardMaterial({
+      color: palette.darkGold,
+      roughness: 0.5,
+      metalness: 0.2,
+      envMapIntensity: 0.4,
+      emissive: palette.gold,
+      emissiveIntensity: 0.05,
+    })
+    const outerHalo = new THREE.Mesh(
+      new THREE.TorusGeometry(1.6, 0.02, 16, 64),
+      outerHaloMat
+    )
+    outerHalo.position.set(haloX, haloY, haloZ)
+    outerHalo.name = '背光外环'
+    parent.add(outerHalo)
+
+    // 最外层光晕：半透明金色发光
+    const glowHaloMat = new THREE.MeshStandardMaterial({
+      color: palette.gold,
+      roughness: 0.6,
+      metalness: 0.1,
+      transparent: true,
+      opacity: 0.18,
+      emissive: palette.gold,
+      emissiveIntensity: 0.4,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    })
+    const glowHalo = new THREE.Mesh(
+      new THREE.RingGeometry(1.5, 2.2, 64),
+      glowHaloMat
+    )
+    glowHalo.position.set(haloX, haloY, haloZ)
+    glowHalo.name = '背光光晕'
+    parent.add(glowHalo)
+
+    // c) 佛龛拱顶（半圆拱）
+    const archMat = new THREE.MeshStandardMaterial({
+      color: palette.darkGold,
+      roughness: 0.45,
+      metalness: 0.2,
+      envMapIntensity: 0.4,
+      emissive: palette.gold,
+      emissiveIntensity: 0.06,
+    })
+    const arch = new THREE.Mesh(
+      new THREE.CylinderGeometry(1.8, 2.0, 0.3, 32, 1, false, 0, Math.PI),
+      archMat
+    )
+    // 旋转使半圆拱面向洞窟入口（z轴正方向）
+    arch.rotation.x = Math.PI / 2
+    arch.rotation.z = Math.PI
+    arch.position.set(mainPedestalX, 3.2, mainPedestalZ)
+    arch.name = '佛龛拱顶'
+    parent.add(arch)
   }
 
-  // === 两侧造像基座（错落排布）===
+  // === 两侧造像基座（双层莲瓣基座，错落排布）===
+  // 莲瓣基座材质（复用，减少draw call）
+  const lotusBaseMat = new THREE.MeshStandardMaterial({
+    color: palette.caveWall,
+    roughness: 0.75,
+    metalness: 0.05,
+    envMapIntensity: 0.2,
+  })
+  const lotusTopMat = new THREE.MeshStandardMaterial({
+    color: palette.darkGold,
+    roughness: 0.5,
+    metalness: 0.18,
+    envMapIntensity: 0.35,
+  })
+  const lotusPetalMat = new THREE.MeshStandardMaterial({
+    color: palette.darkGold,
+    roughness: 0.55,
+    metalness: 0.15,
+    envMapIntensity: 0.3,
+    emissive: 0x3a2e1e,
+    emissiveIntensity: 0.05,
+  })
+
+  // 辅助函数：创建双层莲瓣基座
+  const createLotusPedestal = (baseX, baseZ, namePrefix) => {
+    const group = new THREE.Group()
+    // 底层：土色圆柱
+    const bottomLayer = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.7, 0.8, 0.1, 8),
+      lotusBaseMat
+    )
+    bottomLayer.position.y = 0.05
+    bottomLayer.receiveShadow = true
+    group.add(bottomLayer)
+
+    // 上层：深金色圆柱
+    const topLayer = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.5, 0.6, 0.12, 8),
+      lotusTopMat
+    )
+    topLayer.position.y = 0.1 + 0.06
+    topLayer.receiveShadow = true
+    group.add(topLayer)
+
+    // 8个莲瓣（扁球缩放后环绕上层排列）
+    for (let i = 0; i < 8; i++) {
+      const angle = (i / 8) * Math.PI * 2
+      const petal = new THREE.Mesh(
+        new THREE.SphereGeometry(0.12, 8, 6),
+        lotusPetalMat
+      )
+      // 缩放为扁椭球，模拟莲瓣
+      petal.scale.set(1, 0.4, 0.6)
+      const px = Math.cos(angle) * 0.55
+      const pz = Math.sin(angle) * 0.55
+      petal.position.set(px, 0.1 + 0.02, pz)
+      // 旋转使莲瓣朝外
+      petal.rotation.y = -angle
+      group.add(petal)
+    }
+
+    group.position.set(baseX, 0, baseZ)
+    group.name = namePrefix
+    parent.add(group)
+  }
+
   // 左侧造像基座：位置略前，z轴正方向（靠近后墙左侧）
-  const leftPedestal = new THREE.Mesh(
-    new THREE.BoxGeometry(1.2, 0.2, 1.2),
-    wallMaterial  // 复用墙体材质，减少材质实例
-  )
-  leftPedestal.position.set(caveX + CAVE_DEPTH / 2 - 0.5, 0.1, cave.z + 1.5)
-  leftPedestal.receiveShadow = true
-  leftPedestal.castShadow = false
-  leftPedestal.name = cave.name + '左侧造像基座'
-  parent.add(leftPedestal)
+  createLotusPedestal(caveX + CAVE_DEPTH / 2 - 0.5, cave.z + 1.5, cave.name + '左侧莲瓣基座')
 
   // 右侧造像基座：位置略后，z轴负方向
-  const rightPedestal = new THREE.Mesh(
-    new THREE.BoxGeometry(1.2, 0.2, 1.2),
-    wallMaterial  // 复用墙体材质
+  createLotusPedestal(caveX + CAVE_DEPTH / 2 + 0.8, cave.z - CAVE_WIDTH / 2 + 1, cave.name + '右侧莲瓣基座')
+
+  // === 洞窟入口装饰楣 ===
+  const lintel = new THREE.Mesh(
+    new THREE.BoxGeometry(0.15, 0.12, CAVE_WIDTH + 0.2),
+    frameMaterial  // 复用画框金色材质
   )
-  rightPedestal.position.set(caveX + CAVE_DEPTH / 2 + 0.8, 0.1, cave.z - CAVE_WIDTH / 2 + 1)
-  rightPedestal.receiveShadow = true
-  rightPedestal.castShadow = false
-  rightPedestal.name = cave.name + '右侧造像基座'
-  parent.add(rightPedestal)
+  lintel.position.set(caveX, 3.0, cave.z)
+  lintel.name = cave.name + '入口装饰楣'
+  parent.add(lintel)
 
   // === 洞窟标题文字Sprite（已删除，不再显示洞窟名称标签）===
   // 标题格式：朝代 + 窟号（如"西魏 285窟"、"盛唐 45窟"）
@@ -374,12 +559,104 @@ function createMuralFrame(frameMaterial, palette) {
 }
 
 /**
+ * 创建真实壁画纹理覆盖层
+ * 使用TextureLoader加载真实纹理图片，覆盖程序化绘制的壁画
+ * @param {number} caveX - 洞窟X坐标
+ * @param {number} caveZ - 洞窟Z坐标
+ * @param {string} side - 壁画位置 'right'(右墙) / 'left'(后墙偏左) / 'back'(后墙中央)
+ * @param {string} textureUrl - 纹理图片URL
+ * @param {string} nameKey - raycaster匹配的文物key
+ * @returns {THREE.Mesh} 壁画覆盖层mesh
+ */
+function createRealMuralOverlay(caveX, caveZ, side, textureUrl, nameKey) {
+  const texture = textureLoader.load(textureUrl)
+  texture.colorSpace = THREE.SRGBColorSpace
+
+  const geometry = new THREE.PlaneGeometry(4.5, 3.5)
+  const material = new THREE.MeshStandardMaterial({
+    map: texture,
+    roughness: 0.85,
+    metalness: 0.0,
+    emissive: 0x3a2e1e,
+    emissiveIntensity: 0.15,
+    side: THREE.DoubleSide,
+    depthTest: true,
+    depthWrite: true,
+    polygonOffset: true,
+    polygonOffsetFactor: -2,
+    polygonOffsetUnits: -2,
+  })
+
+  const mesh = new THREE.Mesh(geometry, material)
+
+  // 根据墙面位置设置坐标和旋转
+  if (side === 'right') {
+    // 右墙: z轴负方向墙面，朝向洞窟内部
+    mesh.position.set(caveX + CAVE_DEPTH / 2, 2.2, caveZ - CAVE_WIDTH / 2 + 0.16)
+    mesh.rotation.y = Math.PI / 2
+  } else if (side === 'left') {
+    // 后墙偏左（左壁画框位置）: x轴正方向墙面，朝向洞窟内部
+    mesh.position.set(caveX + CAVE_DEPTH - 0.16, 2.2, caveZ + 1.5)
+    mesh.rotation.y = -Math.PI / 2
+  } else if (side === 'back') {
+    // 后墙中央: x轴正方向墙面，朝向洞窟内部
+    mesh.position.set(caveX + CAVE_DEPTH - 0.16, 2.2, caveZ)
+    mesh.rotation.y = -Math.PI / 2
+  }
+
+  mesh.name = nameKey
+  mesh.castShadow = false
+  mesh.receiveShadow = true
+
+  return mesh
+}
+
+/**
+ * 创建所有洞窟的真实壁画纹理覆盖层
+ * 为5个洞窟的左右墙分别创建真实纹理覆盖
+ * @returns {THREE.Mesh[]} 覆盖层mesh数组
+ */
+export function createAllMuralOverlays() {
+  const overlays = []
+
+  // 壁画配置: [caveIndex, side, textureFile, nameKey]
+  const muralConfig = [
+    // 285窟（西魏）
+    { caveIdx: 0, side: 'right', tex: 'mural_285_right.png', key: '285_右墙_伎乐' },
+    { caveIdx: 0, side: 'left',  tex: 'mural_285_left.png',  key: '285_左墙_飞天' },
+    // 45窟（盛唐）
+    { caveIdx: 1, side: 'right', tex: 'mural_45_right.png', key: '45_右墙_市井' },
+    { caveIdx: 1, side: 'left',  tex: 'mural_45_left.png',  key: '45_左墙_供养人' },
+    // 217窟（盛唐）
+    { caveIdx: 2, side: 'right', tex: 'mural_217_right.png', key: '217_右墙_藻井' },
+    { caveIdx: 2, side: 'left',  tex: 'mural_217_left.png',  key: '217_左墙_供养人' },
+    // 17窟（晚唐）
+    { caveIdx: 3, side: 'right', tex: 'mural_17_right.png', key: '17_右墙_绢画' },
+    { caveIdx: 3, side: 'left',  tex: 'mural_17_left.png',  key: '17_左墙_绢画' },
+    // 3窟（元代）- 右墙使用mural_3_right.png，与createYuanDynastyMuralOverlay共享纹理
+    { caveIdx: 4, side: 'left',  tex: 'mural_3_left.png',   key: '3_左墙_密宗供养' },
+  ]
+
+  muralConfig.forEach(({ caveIdx, side, tex, key }) => {
+    const cave = CAVE_POSITIONS[caveIdx]
+    const textureUrl = BASE_URL + 'textures/' + tex
+    const overlay = createRealMuralOverlay(cave.x, cave.z, side, textureUrl, key)
+    overlays.push(overlay)
+  })
+
+  console.log('[洞窟结构] 已创建 ' + overlays.length + ' 个真实壁画纹理覆盖层')
+  return overlays
+}
+
+/**
  * 创建元代3窟右墙密宗壁画覆盖层
  * 覆盖GLB模型中唐代风格的右墙壁画，替换为元代密宗壁画
  * 关键：z位置必须在原始壁画前方（更靠近洞窟中心），才能在视觉和射线检测中覆盖
  */
 export function createYuanDynastyMuralOverlay() {
-  const texture = createYuanDynastyMuralTexture()
+  const textureUrl = BASE_URL + 'textures/mural_3_right.png'
+  const texture = textureLoader.load(textureUrl)
+  texture.colorSpace = THREE.SRGBColorSpace
 
   const geometry = new THREE.PlaneGeometry(4.2, 3.2)
   const material = new THREE.MeshStandardMaterial({
@@ -406,335 +683,11 @@ export function createYuanDynastyMuralOverlay() {
   mesh.castShadow = false
   mesh.receiveShadow = true
 
-  console.log('[洞窟结构] 元代3窟右墙密宗壁画覆盖层已创建（z=-1.0，优先深度测试）')
+  console.log('[洞窟结构] 元代3窟右墙密宗壁画覆盖层已创建（使用真实纹理，z=-1.0，优先深度测试）')
   return mesh
 }
 
-/**
- * 创建元代密宗壁画纹理（程序化Canvas绘制）
- * 以千手千眼观音为核心，融合密宗曼荼罗、莲台、五佛冠等元素
- * 色彩体系：石绿、朱砂、土黄、金色 —— 元代敦煌壁画典型矿物颜料
- */
-function createYuanDynastyMuralTexture() {
-  const W = 512, H = 512
-  const canvas = document.createElement('canvas')
-  canvas.width = W
-  canvas.height = H
-  const ctx = canvas.getContext('2d')
 
-  // === 背景：土黄底色 + 龟裂纹理模拟古壁 ===
-  ctx.fillStyle = '#2a1f14'
-  ctx.fillRect(0, 0, W, H)
-
-  // 龟裂纹理
-  for (let i = 0; i < 3000; i++) {
-    const x = Math.random() * W
-    const y = Math.random() * H
-    ctx.fillStyle = `rgba(${160 + Math.random()*40}, ${130 + Math.random()*30}, ${80 + Math.random()*30}, ${Math.random() * 0.08})`
-    ctx.fillRect(x, y, 1 + Math.random() * 2, 1)
-  }
-
-  // 细裂纹
-  ctx.strokeStyle = 'rgba(80, 60, 30, 0.12)'
-  ctx.lineWidth = 0.5
-  for (let i = 0; i < 30; i++) {
-    ctx.beginPath()
-    let sx = Math.random() * W, sy = Math.random() * H
-    ctx.moveTo(sx, sy)
-    for (let j = 0; j < 5; j++) {
-      sx += (Math.random() - 0.5) * 60
-      sy += (Math.random() - 0.5) * 40
-      ctx.lineTo(sx, sy)
-    }
-    ctx.stroke()
-  }
-
-  // === 边框：金色 + 朱砂双层边框（密宗唐卡风格）===
-  const bw = 20
-  // 外框 - 金色
-  ctx.strokeStyle = '#D4AF37'
-  ctx.lineWidth = 3
-  ctx.strokeRect(bw, bw, W - bw * 2, H - bw * 2)
-  // 内框 - 朱砂
-  ctx.strokeStyle = '#C04851'
-  ctx.lineWidth = 2
-  ctx.strokeRect(bw + 8, bw + 8, W - (bw + 8) * 2, H - (bw + 8) * 2)
-
-  // 边框角花（密宗几何纹样）
-  const corners = [[bw+4, bw+4], [W-bw-4, bw+4], [bw+4, H-bw-4], [W-bw-4, H-bw-4]]
-  corners.forEach(([cx, cy]) => {
-    ctx.beginPath()
-    ctx.arc(cx, cy, 8, 0, Math.PI * 2)
-    ctx.fillStyle = '#D4AF37'
-    ctx.fill()
-    ctx.beginPath()
-    ctx.arc(cx, cy, 4, 0, Math.PI * 2)
-    ctx.fillStyle = '#C04851'
-    ctx.fill()
-  })
-
-  // === 曼荼罗外环 ===
-  const cx = W / 2, cy = H / 2 - 10
-
-  // 外层光晕
-  const outerGlow = ctx.createRadialGradient(cx, cy, 80, cx, cy, 160)
-  outerGlow.addColorStop(0, 'rgba(58, 125, 92, 0.08)')
-  outerGlow.addColorStop(1, 'rgba(58, 125, 92, 0)')
-  ctx.fillStyle = outerGlow
-  ctx.beginPath()
-  ctx.arc(cx, cy, 160, 0, Math.PI * 2)
-  ctx.fill()
-
-  // 外环
-  ctx.beginPath()
-  ctx.arc(cx, cy, 140, 0, Math.PI * 2)
-  ctx.strokeStyle = 'rgba(212, 175, 55, 0.35)'
-  ctx.lineWidth = 1.5
-  ctx.stroke()
-
-  // 中环
-  ctx.beginPath()
-  ctx.arc(cx, cy, 110, 0, Math.PI * 2)
-  ctx.strokeStyle = 'rgba(58, 125, 92, 0.3)'
-  ctx.lineWidth = 1
-  ctx.stroke()
-
-  // 内环
-  ctx.beginPath()
-  ctx.arc(cx, cy, 85, 0, Math.PI * 2)
-  ctx.strokeStyle = 'rgba(192, 72, 81, 0.25)'
-  ctx.lineWidth = 1
-  ctx.stroke()
-
-  // === 千手观音 - 放射状手臂 ===
-  const armCount = 36
-  for (let i = 0; i < armCount; i++) {
-    const angle = (i / armCount) * Math.PI * 2 - Math.PI / 2
-    const armLen = 95 + Math.sin(i * 0.7) * 20
-    const endX = cx + Math.cos(angle) * armLen
-    const endY = cy + Math.sin(angle) * armLen
-
-    // 手臂线条（铁线描风格）
-    ctx.beginPath()
-    ctx.moveTo(cx + Math.cos(angle) * 22, cy + Math.sin(angle) * 22)
-    ctx.lineTo(endX, endY)
-    const green = 58 + Math.floor(Math.random() * 40)
-    ctx.strokeStyle = `rgba(${green}, ${125 + Math.floor(Math.random()*30)}, ${92 + Math.floor(Math.random()*20)}, ${0.5 + Math.random()*0.3})`
-    ctx.lineWidth = 1.5
-    ctx.stroke()
-
-    // 手掌（圆形 + 眼睛）
-    ctx.beginPath()
-    ctx.arc(endX, endY, 5, 0, Math.PI * 2)
-    ctx.fillStyle = `rgba(201, 168, 76, ${0.6 + Math.random()*0.3})`
-    ctx.fill()
-    ctx.strokeStyle = 'rgba(212, 175, 55, 0.5)'
-    ctx.lineWidth = 0.8
-    ctx.stroke()
-
-    // 眼睛（手心眼）
-    ctx.beginPath()
-    ctx.arc(endX, endY, 2, 0, Math.PI * 2)
-    ctx.fillStyle = '#C04851'
-    ctx.fill()
-  }
-
-  // === 主尊身体 ===
-  // 身光（椭圆形背光）
-  ctx.beginPath()
-  ctx.ellipse(cx, cy, 35, 50, 0, 0, Math.PI * 2)
-  const bodyGlow = ctx.createRadialGradient(cx, cy, 10, cx, cy, 50)
-  bodyGlow.addColorStop(0, 'rgba(58, 125, 92, 0.5)')
-  bodyGlow.addColorStop(0.7, 'rgba(58, 125, 92, 0.2)')
-  bodyGlow.addColorStop(1, 'rgba(58, 125, 92, 0)')
-  ctx.fillStyle = bodyGlow
-  ctx.fill()
-
-  // 身体
-  ctx.beginPath()
-  ctx.ellipse(cx, cy, 18, 35, 0, 0, Math.PI * 2)
-  ctx.fillStyle = '#3A7D5C'
-  ctx.fill()
-  ctx.strokeStyle = '#D4AF37'
-  ctx.lineWidth = 1.5
-  ctx.stroke()
-
-  // 璎珞装饰（胸前）
-  for (let i = 0; i < 5; i++) {
-    const ny = cy - 10 + i * 6
-    ctx.beginPath()
-    ctx.moveTo(cx - 12, ny)
-    ctx.quadraticCurveTo(cx, ny + 3, cx + 12, ny)
-    ctx.strokeStyle = 'rgba(212, 175, 55, 0.6)'
-    ctx.lineWidth = 0.8
-    ctx.stroke()
-  }
-
-  // === 头部 ===
-  ctx.beginPath()
-  ctx.arc(cx, cy - 48, 14, 0, Math.PI * 2)
-  ctx.fillStyle = '#C9A84C'
-  ctx.fill()
-  ctx.strokeStyle = '#D4AF37'
-  ctx.lineWidth = 1.2
-  ctx.stroke()
-
-  // 面部特征（简化的慈悲面容）
-  ctx.fillStyle = '#2a1f14'
-  // 眉毛
-  ctx.beginPath()
-  ctx.moveTo(cx - 7, cy - 52)
-  ctx.quadraticCurveTo(cx - 3, cy - 55, cx - 1, cy - 52)
-  ctx.strokeStyle = '#2a1f14'
-  ctx.lineWidth = 0.8
-  ctx.stroke()
-  ctx.beginPath()
-  ctx.moveTo(cx + 1, cy - 52)
-  ctx.quadraticCurveTo(cx + 3, cy - 55, cx + 7, cy - 52)
-  ctx.stroke()
-  // 眼睛
-  ctx.beginPath()
-  ctx.ellipse(cx - 4, cy - 49, 2, 1, 0, 0, Math.PI * 2)
-  ctx.fill()
-  ctx.beginPath()
-  ctx.ellipse(cx + 4, cy - 49, 2, 1, 0, 0, Math.PI * 2)
-  ctx.fill()
-  // 嘴
-  ctx.beginPath()
-  ctx.moveTo(cx - 3, cy - 42)
-  ctx.quadraticCurveTo(cx, cy - 40, cx + 3, cy - 42)
-  ctx.strokeStyle = '#2a1f14'
-  ctx.lineWidth = 0.6
-  ctx.stroke()
-
-  // === 五佛冠（元代密宗标志性头冠）===
-  const crownY = cy - 62
-  // 冠基
-  ctx.beginPath()
-  ctx.moveTo(cx - 16, cy - 55)
-  ctx.lineTo(cx - 18, crownY + 5)
-  ctx.lineTo(cx + 18, crownY + 5)
-  ctx.lineTo(cx + 16, cy - 55)
-  ctx.fillStyle = '#C04851'
-  ctx.fill()
-  ctx.strokeStyle = '#D4AF37'
-  ctx.lineWidth = 1
-  ctx.stroke()
-
-  // 五佛（冠上五小佛）
-  for (let i = 0; i < 5; i++) {
-    const fx = cx - 14 + i * 7
-    ctx.beginPath()
-    ctx.arc(fx, crownY, 3, 0, Math.PI * 2)
-    ctx.fillStyle = '#D4AF37'
-    ctx.fill()
-    ctx.beginPath()
-    ctx.arc(fx, crownY, 1.5, 0, Math.PI * 2)
-    ctx.fillStyle = '#C04851'
-    ctx.fill()
-  }
-
-  // === 莲台 ===
-  const lotusY = cy + 50
-  // 莲花底座
-  ctx.beginPath()
-  ctx.ellipse(cx, lotusY, 40, 12, 0, 0, Math.PI * 2)
-  ctx.fillStyle = '#C9A84C'
-  ctx.fill()
-  ctx.strokeStyle = '#D4AF37'
-  ctx.lineWidth = 1
-  ctx.stroke()
-
-  // 莲花瓣
-  for (let i = 0; i < 10; i++) {
-    const angle = (i / 10) * Math.PI * 2
-    const px = cx + Math.cos(angle) * 30
-    const py = lotusY + Math.sin(angle) * 8
-    ctx.beginPath()
-    ctx.ellipse(px, py, 10, 5, angle, 0, Math.PI * 2)
-    ctx.fillStyle = `rgba(192, 72, 81, ${0.4 + Math.random()*0.2})`
-    ctx.fill()
-    ctx.strokeStyle = 'rgba(212, 175, 55, 0.4)'
-    ctx.lineWidth = 0.5
-    ctx.stroke()
-  }
-
-  // === 两侧胁侍菩萨（简化轮廓）===
-  // 左胁侍
-  drawAttendantBodhisattva(ctx, cx - 80, cy + 10, false)
-  // 右胁侍
-  drawAttendantBodhisattva(ctx, cx + 80, cy + 10, true)
-
-  // === 底部题记区域 ===
-  ctx.fillStyle = 'rgba(42, 31, 20, 0.85)'
-  ctx.fillRect(bw + 12, H - bw - 45, W - (bw + 12) * 2, 35)
-  ctx.strokeStyle = 'rgba(212, 175, 55, 0.4)'
-  ctx.lineWidth = 0.8
-  ctx.strokeRect(bw + 12, H - bw - 45, W - (bw + 12) * 2, 35)
-
-  // 模拟藏文题记
-  ctx.font = '9px serif'
-  ctx.fillStyle = 'rgba(212, 175, 55, 0.5)'
-  for (let i = 0; i < 12; i++) {
-    const tx = bw + 20 + i * 35
-    ctx.fillText('ༀཨོཾ', tx, H - bw - 25)
-  }
-
-  const texture = new THREE.CanvasTexture(canvas)
-  texture.colorSpace = THREE.SRGBColorSpace
-  return texture
-}
-
-/**
- * 绘制胁侍菩萨（简化轮廓）
- */
-function drawAttendantBodhisattva(ctx, x, y, mirror) {
-  const dir = mirror ? -1 : 1
-
-  // 身体
-  ctx.beginPath()
-  ctx.ellipse(x, y, 10, 22, 0, 0, Math.PI * 2)
-  ctx.fillStyle = 'rgba(58, 125, 92, 0.5)'
-  ctx.fill()
-  ctx.strokeStyle = 'rgba(212, 175, 55, 0.4)'
-  ctx.lineWidth = 0.8
-  ctx.stroke()
-
-  // 头
-  ctx.beginPath()
-  ctx.arc(x, y - 30, 7, 0, Math.PI * 2)
-  ctx.fillStyle = 'rgba(201, 168, 76, 0.6)'
-  ctx.fill()
-
-  // 五佛冠
-  ctx.beginPath()
-  ctx.moveTo(x - 6, y - 33)
-  ctx.lineTo(x, y - 42)
-  ctx.lineTo(x + 6, y - 33)
-  ctx.fillStyle = 'rgba(192, 72, 81, 0.5)'
-  ctx.fill()
-
-  // 飘带
-  ctx.beginPath()
-  ctx.moveTo(x, y - 20)
-  ctx.quadraticCurveTo(x + dir * 25, y - 10, x + dir * 30, y + 5)
-  ctx.strokeStyle = 'rgba(58, 125, 92, 0.4)'
-  ctx.lineWidth = 1.5
-  ctx.stroke()
-
-  ctx.beginPath()
-  ctx.moveTo(x, y - 15)
-  ctx.quadraticCurveTo(x + dir * 20, y, x + dir * 25, y + 15)
-  ctx.strokeStyle = 'rgba(192, 72, 81, 0.3)'
-  ctx.lineWidth = 1
-  ctx.stroke()
-
-  // 莲花供养
-  ctx.beginPath()
-  ctx.arc(x - dir * 5, y + 28, 5, 0, Math.PI * 2)
-  ctx.fillStyle = 'rgba(192, 72, 81, 0.4)'
-  ctx.fill()
-}
 
 /**
  * 获取洞窟位置数据
