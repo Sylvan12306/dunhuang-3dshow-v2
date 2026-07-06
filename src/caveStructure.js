@@ -621,20 +621,20 @@ export function createAllMuralOverlays() {
 
   // 壁画配置: [caveIndex, side, textureFile, nameKey]
   const muralConfig = [
-    // 285窟（西魏）
+    // 285窟（西魏）- 纹理内容与raycaster key严格对应
     { caveIdx: 0, side: 'right', tex: 'mural_285_right.png', key: '285_右墙_伎乐' },
-    { caveIdx: 0, side: 'left',  tex: 'mural_285_left.png',  key: '285_左墙_飞天' },
-    // 45窟（盛唐）
+    { caveIdx: 0, side: 'left',  tex: 'mural_285_left.png',  key: '285_后墙_经变画' },
+    // 45窟（盛唐）- 左墙纹理为飞天，匹配飞天key
     { caveIdx: 1, side: 'right', tex: 'mural_45_right.png', key: '45_右墙_市井' },
-    { caveIdx: 1, side: 'left',  tex: 'mural_45_left.png',  key: '45_左墙_供养人' },
-    // 217窟（盛唐）
-    { caveIdx: 2, side: 'right', tex: 'mural_217_right.png', key: '217_右墙_藻井' },
+    { caveIdx: 1, side: 'left',  tex: 'mural_45_left.png',  key: '45_左墙_飞天' },
+    // 217窟（盛唐）- 右墙纹理为法华经变山水，匹配后墙经变画key
+    { caveIdx: 2, side: 'right', tex: 'mural_217_right.png', key: '217_后墙_经变画' },
     { caveIdx: 2, side: 'left',  tex: 'mural_217_left.png',  key: '217_左墙_供养人' },
-    // 17窟（晚唐）
+    // 17窟（晚唐）- 左墙纹理为僧人画像，匹配晚唐僧人key
     { caveIdx: 3, side: 'right', tex: 'mural_17_right.png', key: '17_右墙_绢画' },
-    { caveIdx: 3, side: 'left',  tex: 'mural_17_left.png',  key: '17_左墙_绢画' },
-    // 3窟（元代）- 右墙使用mural_3_right.png，与createYuanDynastyMuralOverlay共享纹理
-    { caveIdx: 4, side: 'left',  tex: 'mural_3_left.png',   key: '3_左墙_密宗供养' },
+    { caveIdx: 3, side: 'left',  tex: 'mural_17_left.png',  key: '17_左墙_晚唐僧人' },
+    // 3窟（元代）- 左墙纹理为密宗千佛，匹配密宗千佛key
+    { caveIdx: 4, side: 'left',  tex: 'mural_3_left.png',   key: '3_左墙_密宗千佛' },
   ]
 
   muralConfig.forEach(({ caveIdx, side, tex, key }) => {
@@ -669,16 +669,15 @@ export function createYuanDynastyMuralOverlay() {
     depthTest: true,
     depthWrite: true,
     polygonOffset: true,
-    polygonOffsetFactor: -1,   // 确保覆盖层在深度测试中优先于原始壁画
-    polygonOffsetUnits: -1,
+    polygonOffsetFactor: -2,   // 与其他壁画覆盖层一致，确保在GLB壁画前方
+    polygonOffsetUnits: -2,
   })
 
   const mesh = new THREE.Mesh(geometry, material)
   // 3窟: caveX=36, CAVE_DEPTH=8, cave.z=1.6, CAVE_WIDTH=6
-  // 右墙位置: z = 1.6 - 3 = -1.4
-  // 覆盖层必须在原始壁画前方: z = -1.0（比原始壁画更靠内0.4米）
-  // 右上侧壁画覆盖: x偏向后墙(x≈40), y偏上方(y≈2.5)
-  mesh.position.set(40, 2.5, -1.0)
+  // 右墙: 与其他洞窟右墙覆盖层位置统一
+  mesh.position.set(36 + CAVE_DEPTH / 2, 2.2, 1.6 - CAVE_WIDTH / 2 + 0.16)
+  mesh.rotation.y = Math.PI / 2
   mesh.name = '3_右墙_密宗主尊'
   mesh.castShadow = false
   mesh.receiveShadow = true

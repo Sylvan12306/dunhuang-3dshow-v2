@@ -81,8 +81,8 @@ async function main() {
     hideLoading()
     showUI()
 
-    // 初始化 WebXR VR 模式
-    initVR(renderer)
+    // 初始化 WebXR VR 模式（传入完整参数，确保VR控制器和HUD能正确创建）
+    initVR(renderer, camera, scene, controls)
 
     console.log('[敦煌3DShow] 初始化完成，模型已渲染')
 
